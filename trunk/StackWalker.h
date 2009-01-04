@@ -167,7 +167,7 @@ protected:
 #else
 // The following should be enough for walking the callstack...
 #define GET_CURRENT_CONTEXT(c, contextFlags) \
-  do { \
+  { \
     memset(&c, 0, sizeof(CONTEXT)); \
     c.ContextFlags = contextFlags; \
     __asm    call x \
@@ -175,7 +175,7 @@ protected:
     __asm    mov c.Eip, eax \
     __asm    mov c.Ebp, ebp \
     __asm    mov c.Esp, esp \
-  } while(0);
+  } 
 #endif
 
 #else
