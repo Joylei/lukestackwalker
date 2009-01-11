@@ -19,6 +19,7 @@ public:
     ProfilerProgressStatus m_status;
     bool m_bProfileReturnValue;
     bool m_bTitleChanged;
+    bool m_bTitleChangedToLoading;
     wxTimer m_timer;
     wxStaticText *m_staticText;
 
@@ -81,6 +82,7 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
     sizerTop->Fit(this);
     CenterOnParent(wxBOTH);
     m_bTitleChanged = false;
+    m_bTitleChangedToLoading = false;
 }
 
 void ProfileProgressDialog::OnActionButton(wxCommandEvent& WXUNUSED(event)) {
@@ -133,24 +135,41 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
       m_staticText->SetLabel(buf);
     }
   } else {
-    if (m_settings->m_samplingTime == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL) {
+    if (!g_allThreadSamples) {
+      if (!m_bTitleChangedToLoading) {
+        m_bTitleChangedToLoading = true;
+        SetLabel("Loading debug info...");
+      }
       char buf[256];
-      sprintf(buf, "%d samples collected", m_allThreadSamples);
+      sprintf(buf, "%d of %d modules loaded", g_loadedModules, g_totalModules);
       m_staticText->SetLabel(buf);
-      m_gauge->Pulse();
+      if (!g_totalModules) {        
+        m_gauge->SetValue(0);
+      } else {        
+        m_gauge->SetRange(100 * g_totalModules);
+        m_gauge->SetValue(100 * g_loadedModules);
+      }
     } else {
-      int val = m_settings->m_samplingTime - m_status.secondsLeftToProfile;
-      m_gauge->SetRange(100 * m_settings->m_samplingTime);
-      m_gauge->SetValue(100 * val);
-      char buf[256];
-      sprintf(buf, "%d seconds left, %d samples collected", m_status.secondsLeftToProfile, m_allThreadSamples);
-      m_staticText->SetLabel(buf);
+      if (!m_bTitleChanged) {
+        SetLabel("Sampling...");
+        m_actionButton->SetLabel("Stop Sampling");
+        m_bTitleChanged = true;
+      }
+      if (m_settings->m_samplingTime == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL) {
+        char buf[256];
+        sprintf(buf, "%d samples collected", g_allThreadSamples);
+        m_staticText->SetLabel(buf);
+        m_gauge->Pulse();   
+      } else {
+        int val = m_settings->m_samplingTime - m_status.secondsLeftToProfile;
+        m_gauge->SetRange(100 * m_settings->m_samplingTime);
+        m_gauge->SetValue(100 * val);
+        char buf[256];
+        sprintf(buf, "%d seconds left, %d samples collected", m_status.secondsLeftToProfile, g_allThreadSamples);
+        m_staticText->SetLabel(buf);
+      }
     }
-    if (!m_bTitleChanged) {
-      SetLabel("Sampling...");
-      m_actionButton->SetLabel("Stop Sampling");
-      m_bTitleChanged = true;
-    }
+    
   }
   if (m_status.bFinishedSampling) {
     EndProfiling();

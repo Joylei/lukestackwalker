@@ -7,7 +7,7 @@
 !define PRODUCT_NAME "Luke Stackwalker"
 !define PRODUCT_VERSION "${VER_MAJOR}.${VER_MINOR}.${VER_BUGFIX}"
 !define PRODUCT_PUBLISHER "Sami Sallinen."
-!define PRODUCT_WEB_SITE "http://lukesw.sf.net/"
+!define PRODUCT_WEB_SITE "http://lukestackwalker.sourceforge.net/"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\luke_sw.exe"
 !define PRODUCT_UNINST_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall\${PRODUCT_NAME}"
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
@@ -93,6 +93,8 @@ Section "MainSection" SEC01
   File "x86_Microsoft.VC80.CRT_1fc8b3b9a1e18e3b_8.0.50727.3053_x-ww_b80fa8ca.manifest"
   File "bitmaps\lsp.ico"
   File "bitmaps\lsd.ico"
+  File "manual\luke stackwalker manual.pdf"
+  File "relnotes.txt"
 
 SectionEnd
 
@@ -104,8 +106,9 @@ FunctionEnd
 
 Section -AdditionalIcons
   WriteIniStr "$INSTDIR\${PRODUCT_NAME}.url" "InternetShortcut" "URL" "${PRODUCT_WEB_SITE}"
-  CreateShortCut "$SMPROGRAMS\Luke Stackwalker\Website.lnk" "$INSTDIR\${PRODUCT_NAME}.url"
+  CreateShortCut "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker Website.lnk" "$INSTDIR\${PRODUCT_NAME}.url"
   CreateShortCut "$SMPROGRAMS\Luke Stackwalker\Uninstall.lnk" "$INSTDIR\uninst.exe"
+  CreateShortCut "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker Manual.lnk" "$INSTDIR\luke stackwalker manual.pdf"
   
   WriteRegStr HKCR ".lsp" "" "LukeStackwalker.Project"
   WriteRegStr HKCR ".lsd" "" "LukeStackwalker.Data"
@@ -184,13 +187,17 @@ Section Uninstall
   Delete "$INSTDIR\x86_Microsoft.VC80.CRT_1fc8b3b9a1e18e3b_8.0.50727.3053_x-ww_b80fa8ca.manifest"
   Delete "$INSTDIR\lsp.ico"
   Delete "$INSTDIR\lsd.ico"
+  Delete "$INSTDIR\luke stackwalker manual.pdf"
+  Delete "$INSTDIR\relnotes.txt"
 
 
 
   Delete "$SMPROGRAMS\Luke Stackwalker\Uninstall.lnk"
-  Delete "$SMPROGRAMS\Luke Stackwalker\Website.lnk"
-  Delete "$DESKTOP\Luke Stackwalker.lnk"
+  Delete "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker Website.lnk"
   Delete "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker.lnk"
+  Delete "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker Manual.lnk"
+
+  Delete "$DESKTOP\Luke Stackwalker.lnk"
 
   RMDir "$SMPROGRAMS\Luke Stackwalker"
   RMDir "$INSTDIR"

@@ -18,7 +18,10 @@
 #include <wx/filename.h>
 
 std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
-int m_allThreadSamples = 0;
+int g_allThreadSamples = 0;
+int g_totalModules = 0;
+int g_loadedModules = 0;
+bool g_bNewProfileData = false;
 
 // Simple implementation of an additional output to the console:
 class MyStackWalker : public StackWalker
@@ -33,6 +36,15 @@ public:
   MyStackWalker(int options, DWORD dwProcessId, HANDLE hProcess, LPCSTR debugInfoPath) : StackWalker(options, debugInfoPath, dwProcessId, hProcess) {
     m_bSkipFirstEntry = false;
   }
+
+  void OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG, int totalModules, int currentModule) {
+    CHAR buffer[STACKWALK_MAX_NAMELEN];
+    _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
+    g_totalModules = totalModules;
+    g_loadedModules = currentModule;
+    OnOutput(buffer);
+  }
+
   virtual void OnOutput(LPCSTR szText) { wxLogMessage(szText); }
 
   void OnCallstackEntry(CallstackEntryType eType, CallstackEntry &entry) {  
@@ -241,7 +253,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
         continue;
       sw.m_currThreadContext = &g_threadSamples[te.th32ThreadID];
       sw.ShowCallstack(hThread, maxDepth);
-      m_allThreadSamples++;
+      g_allThreadSamples++;
       sw.m_currThreadContext->m_totalSamples++;
       CloseHandle(hThread);
       DWORD exitCode = 0;
@@ -268,7 +280,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
 
   } while ((time(0) < end) || (duration == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL));
   time_t sampleend = time(0);
-  double sampleSpeed = (double)m_allThreadSamples  / (sampleend - samplestart);
+  double sampleSpeed = (double)g_allThreadSamples  / (sampleend - samplestart);
 
   if (hSnap != INVALID_HANDLE_VALUE)
     CloseHandle(hSnap);
@@ -538,7 +550,10 @@ char *MergeEnvironment(ProfilerSettings *settings) {
 bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {  
 
   g_threadSamples.clear();
-  m_allThreadSamples = 0;
+  g_allThreadSamples = 0;
+  g_totalModules = 0;
+  g_loadedModules = 0;
+
 
   wxLogMessage("Launching executable %s.", settings->m_executable.c_str());
 
@@ -591,8 +606,9 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
   ProduceDisplayData();
-  wxLogMessage("Done; %d samples collected at %0.1lf samples/second.", m_allThreadSamples, sampleSpeed);
+  wxLogMessage("Done; %d samples collected at %0.1lf samples/second.", g_allThreadSamples, sampleSpeed);
   status->bFinishedSampling = true;
+  g_bNewProfileData = true;
   return true;
 }
 
@@ -602,6 +618,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {
 enum {LSD_FILEVERSION = 1};
 bool LoadSampleData(const wxString &fn) {
 
+  g_bNewProfileData = false;
   wxFileInputStream file_input(fn);  
   wxTextInputStream in(file_input);
   
@@ -800,5 +817,6 @@ bool SaveSampleData(const wxString &fn) {
     }
   }
 
+  g_bNewProfileData = false;
   return file_output.GetLastError() == wxSTREAM_NO_ERROR;
 }

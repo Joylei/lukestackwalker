@@ -32,6 +32,9 @@ Graphviz library (c) 1994-2004 AT&T Corp, licensed under the Common Public Licen
 
 WxWidgets library Copyright (c) 1998-2005 Julian Smart, Robert Roebling et al, licensed under the wxWindows Library Licence
 
+Silk Icons by Mark James http://www.famfamfam.com/lab/icons/silk/, licensed under the Creative Commons Attribution 2.5 License
+
 Microsoft debugging tools for Windows redistributable components, redistributed under 'MICROSOFT SOFTWARE LICENSE TERMS'
 
 Built using Microsoft Visual Studio 2005 Express Edition
+

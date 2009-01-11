@@ -67,6 +67,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   void RestoreViews();
   void RefreshGridView();
   void ProfileDataChanged();
+  bool ComplainAboutNonSavedProfile();
 
 public:
     // ctor(s)
