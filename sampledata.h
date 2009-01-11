@@ -89,7 +89,11 @@ struct ThreadSampleInfo {
 
 
 
-extern int m_allThreadSamples;
+extern int g_allThreadSamples;
+extern int g_totalModules;
+extern int g_loadedModules;
+extern bool g_bNewProfileData;
+
 extern std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
 
 bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status);

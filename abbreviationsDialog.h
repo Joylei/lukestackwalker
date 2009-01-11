@@ -8,6 +8,7 @@ public:
   void OnOk(wxCommandEvent&);
   void OnRemoveButton(wxCommandEvent& );
   void OnItemSelected(wxCommandEvent& );
+  void SetLongText(const char *txt) {m_longText->SetValue(txt);}
 
 private:
   void CopyLocalMapToListCtrl();

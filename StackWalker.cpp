@@ -511,10 +511,18 @@ private:
       return FALSE;
 
     keepGoing = !!pM32F( hSnap, &me );
+    int moduleCount = 0;
+    while (keepGoing) {      
+      moduleCount++;
+      keepGoing = !!pM32N( hSnap, &me );
+    }
+
+
+    keepGoing = !!pM32F( hSnap, &me );
     int cnt = 0;
     while (keepGoing)
     {
-      this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize);
+      this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize, moduleCount, cnt+1);
       cnt++;
       keepGoing = !!pM32N( hSnap, &me );
     }
@@ -603,7 +611,7 @@ private:
       tt2[0] = 0;
       pGMBN(hProcess, hMods[i], tt2, TTBUFLEN );
 
-      DWORD dwRes = this->LoadModule(hProcess, tt, tt2, (DWORD64) mi.lpBaseOfDll, mi.SizeOfImage);
+      DWORD dwRes = this->LoadModule(hProcess, tt, tt2, (DWORD64) mi.lpBaseOfDll, mi.SizeOfImage, cbNeeded / sizeof hMods[0], i);
       if (dwRes != ERROR_SUCCESS)
         this->m_parent->OnDbgHelpErr("LoadModule", dwRes, 0);
       cnt++;
@@ -618,7 +626,7 @@ private:
     return cnt != 0;
   }  // GetModuleListPSAPI
 
-  DWORD LoadModule(HANDLE hProcess, LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size)
+  DWORD LoadModule(HANDLE hProcess, LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, int totalModules, int currentModule)
   {
     CHAR *szImg = _strdup(img);
     CHAR *szMod = _strdup(mod);
@@ -696,7 +704,7 @@ private:
             break;
         }
       }
-      this->m_parent->OnLoadModule(img, mod, baseAddr, size, result, szSymType, Module.LoadedPdbName, fileVersion);
+      this->m_parent->OnLoadModule(img, mod, baseAddr, size, result, szSymType, Module.LoadedPdbName, fileVersion, totalModules, currentModule);
     }
     if (szImg != NULL) free(szImg);
     if (szMod != NULL) free(szMod);
@@ -1170,11 +1178,7 @@ BOOL __stdcall StackWalker::myReadProcMem(
   }
 }
 
-void StackWalker::OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG)
-{
-  CHAR buffer[STACKWALK_MAX_NAMELEN];
-  _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
-  OnOutput(buffer);
+void StackWalker::OnLoadModule(LPCSTR, LPCSTR, DWORD64, DWORD, DWORD, LPCSTR, LPCSTR, ULONGLONG, int, int) {
 }
 
 void StackWalker::OnCallstackEntry(CallstackEntryType eType, CallstackEntry &entry)

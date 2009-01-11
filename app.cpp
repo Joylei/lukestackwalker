@@ -273,6 +273,9 @@ void StackWalkerMainWnd::OnMRUFile(wxCommandEvent& ev) {
     LoadSettings(fn.GetFullPath());
   }
   if (!ext.CmpNoCase("lsd")) {
+    if (ComplainAboutNonSavedProfile()) {
+      return;
+    }
     LoadProfileData(fn.GetFullPath());
   }
 }
@@ -465,6 +468,22 @@ StackWalkerMainWnd::~StackWalkerMainWnd() {
   delete wxLog::SetActiveTarget(m_logTargetOld);
 }
 
+
+bool StackWalkerMainWnd::ComplainAboutNonSavedProfile() {
+  if (!g_bNewProfileData)
+    return false;
+  wxMessageDialog dlg(this, _("The profile data has not been saved.\nDo you want to save before continuing?"), _("Note"), wxYES_NO|wxCANCEL);
+  int ret = dlg.ShowModal();
+  if (ret == wxID_CANCEL) {
+    return true;
+  }
+  if (ret == wxID_YES) {
+    wxCommandEvent ev2;
+    OnFileSaveProfile(ev2);    
+  }
+  return false;
+}
+
 void StackWalkerMainWnd::OnClose(wxCloseEvent &ev) {
   if (!ev.CanVeto())
     return;
@@ -480,6 +499,10 @@ void StackWalkerMainWnd::OnClose(wxCloseEvent &ev) {
       OnFileSaveSettingsAs(ev2);
       return;
     }
+  }
+  if (ComplainAboutNonSavedProfile()) {
+    ev.Veto();
+    return;
   }
   ev.Skip();
 }
@@ -499,7 +522,9 @@ void StackWalkerMainWnd::OnAbout(wxCommandEvent& WXUNUSED(event)) {
     _T("Walking the callstack (http://www.codeproject.com/KB/threads/StackWalker.aspx) - source code (c) 2005-2007 Jochen Kalmbach,\nlicensed under the BSD license\n\n")
     _T("Graphviz library (c) 1994-2004 AT&T Corp, licensed under the Common Public License\n\n")
     _T("WxWidgets library Copyright (c) 1998-2005 Julian Smart, Robert Roebling et al, licensed under the wxWindows Library Licence\n\n")
+    _T("Silk Icons by Mark James http://www.famfamfam.com/lab/icons/silk/, licensed under the Creative Commons Attribution 2.5 License\n\n")
     _T("Microsoft debugging tools for Windows redistributable components, redistributed under 'MICROSOFT SOFTWARE LICENSE TERMS'\n"),
+    
     VERSION_MAJOR, VERSION_MINOR, VERSION_BUGFIX);
 
   wxMessageBox(buf, _T("About Luke StackWalker"), wxOK | wxICON_INFORMATION, this);
@@ -542,7 +567,7 @@ void StackWalkerMainWnd::UpdateTitleBar() {
 
   if (m_currentFunction.length()) {
     label += " - ";
-    label += m_currentFunction;
+    label += m_settings.DoAbbreviations(m_currentFunction);
   }
 
   SetLabel(label);
@@ -683,6 +708,9 @@ void StackWalkerMainWnd::OnGridSelect(wxGridEvent &ev) {
 
 void StackWalkerMainWnd::OnGridLabelLeftClick(wxGridEvent &ev) {
   int row = ev.GetRow();
+  if (row < 0) {
+    return;
+  }
   m_resultsGrid->ClearSelection();
   m_resultsGrid->SelectRow(row);
   if (m_resultsGrid->GetGridCursorRow() != row) 
@@ -913,7 +941,19 @@ void StackWalkerMainWnd::ProfileDataChanged() {
 
 
 void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
-  ShowChildWindows(true);
+  if (m_settings.m_executable.empty()) {
+    wxMessageDialog dlg(this, _("You need to set the name of the executable to be profiled first.\n"
+                                "Use the 'Profile/Project setup...' menu command to do that."), _("Error"), wxOK|wxICON_ERROR);
+    dlg.ShowModal();
+    return;
+  }
+  
+  if (ComplainAboutNonSavedProfile()) {
+    return;
+  }
+
+  ShowChildWindows(true);  
+
   ClearContext();
 
   if (m_settings.m_currentDirectory.empty()) {
@@ -998,6 +1038,7 @@ void StackWalkerMainWnd::RestoreViews() {
 void StackWalkerMainWnd::OnViewAbbreviate(wxCommandEvent&) {
   std::map<wxString, wxString> before = m_settings.m_symbolAbbreviations;
   AbbreviationsDialog dlg(this, &m_settings.m_symbolAbbreviations);
+  dlg.SetLongText(m_currentFunction);
   if (dlg.ShowModal() == wxID_OK) {
     if (before != m_settings.m_symbolAbbreviations) {
       m_settings.m_bChanged = TRUE;    
@@ -1042,6 +1083,9 @@ void StackWalkerMainWnd::LoadProfileData(const char *fileName) {
 }
 
 void StackWalkerMainWnd::OnFileLoadProfile(wxCommandEvent&) {
+  if (ComplainAboutNonSavedProfile()) {
+    return;
+  }
   ShowChildWindows(true);
   ClearContext();
 

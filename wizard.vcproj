@@ -236,10 +236,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\lukesw-version.h"
-				>
-			</File>
-			<File
 				RelativePath=".\prefs.cpp"
 				>
 			</File>
@@ -357,6 +353,10 @@
 			>
 		</File>
 		<File
+			RelativePath=".\lukesw-version.h"
+			>
+		</File>
+		<File
 			RelativePath=".\prefs.h"
 			>
 		</File>
@@ -366,6 +366,10 @@
 		</File>
 		<File
 			RelativePath=".\ProfilerSettings.h"
+			>
+		</File>
+		<File
+			RelativePath=".\relnotes.txt"
 			>
 		</File>
 		<File
