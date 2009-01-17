@@ -80,11 +80,29 @@ struct ThreadSampleInfo {
   std::map<std::string, FileLineInfo> m_lineSamples;
   std::list<FunctionSample *> m_sortedFunctionSamples;
   int m_totalSamples;
+  __int64 m_kernelTimeStart;
+  __int64 m_userTimeStart;
+  __int64 m_kernelTimeEnd;
+  __int64 m_userTimeEnd;
+  unsigned m_firstTickCount;
+  unsigned m_lastTickCount;
+  bool m_bFirstSample;
   bool m_bSelectedForDisplay;
   ThreadSampleInfo() {
     m_totalSamples = 0;
     m_bSelectedForDisplay = false;
+    m_kernelTimeStart = 0;
+    m_userTimeStart = 0;
+    m_kernelTimeEnd = 0;
+    m_userTimeEnd = 0;
+    m_firstTickCount = 0;
+    m_lastTickCount = 0;
+    m_bFirstSample = true;
   }
+  int GetRunningTime_ms() {return (int)(m_lastTickCount - m_firstTickCount);}
+  int GetKernelTime_ms() {return (int)((m_kernelTimeEnd - m_kernelTimeStart) / 10000);}
+  int GetUserTime_ms() {return (int)((m_userTimeEnd - m_userTimeStart) / 10000);}
+  int GetCPUTime_ms() {return GetKernelTime_ms() + GetUserTime_ms();}
 };
 
 

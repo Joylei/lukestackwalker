@@ -384,7 +384,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   wxStaticText *threadPrompt = new wxStaticText(m_toolbar, wxID_ANY, "  Threads: ");
   m_toolbar->AddControl(threadPrompt);
 
-  m_toolbarThreadsCombo = new wxComboCtrl(m_toolbar,wxID_ANY,wxEmptyString, wxDefaultPosition, wxSize(200,wxDefaultCoord), wxCB_READONLY);
+  m_toolbarThreadsCombo = new wxComboCtrl(m_toolbar,wxID_ANY,wxEmptyString, wxDefaultPosition, wxSize(250,wxDefaultCoord), wxCB_READONLY);
   m_toolbarThreadsCombo->SetPopupMaxHeight(200);
 
   m_toolbarThreadsListPopup = new wxListViewComboPopup();
@@ -931,7 +931,7 @@ void StackWalkerMainWnd::ProfileDataChanged() {
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {
      char buf[256];
-     sprintf(buf, "0x%X [%d samples, %d funcs]", it->first, it->second.m_totalSamples, it->second.m_sortedFunctionSamples.size());
+     sprintf(buf, "0x%X [%d samples, %d funcs, %0.2lfs CPU time]", it->first, it->second.m_totalSamples, it->second.m_sortedFunctionSamples.size(), it->second.GetCPUTime_ms()/1000.0);
      m_toolbarThreadsListPopup->InsertItem(m_toolbarThreadsListPopup->GetItemCount(), buf);
   }
   m_toolbarThreadsCombo->SetText(m_toolbarThreadsListPopup->GetItemText(0));

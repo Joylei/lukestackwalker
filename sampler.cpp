@@ -252,6 +252,28 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
       if (hThread == NULL)
         continue;
       sw.m_currThreadContext = &g_threadSamples[te.th32ThreadID];
+      FILETIME creationTime, endTime, kernelTime, userTime;
+      if (GetThreadTimes(hThread, &creationTime, &endTime, &kernelTime, &userTime)) {
+        ULARGE_INTEGER tmp;
+        DWORD now = GetTickCount();
+        if (sw.m_currThreadContext->m_bFirstSample) {
+          sw.m_currThreadContext->m_bFirstSample = false;
+          sw.m_currThreadContext->m_firstTickCount = now;
+          tmp.HighPart = kernelTime.dwHighDateTime;
+          tmp.LowPart = kernelTime.dwLowDateTime;
+          sw.m_currThreadContext->m_kernelTimeStart = tmp.QuadPart;
+          tmp.HighPart = userTime.dwHighDateTime;
+          tmp.LowPart = userTime.dwLowDateTime;
+          sw.m_currThreadContext->m_userTimeStart = tmp.QuadPart;
+        }
+        sw.m_currThreadContext->m_lastTickCount = now;
+        tmp.HighPart = kernelTime.dwHighDateTime;
+        tmp.LowPart = kernelTime.dwLowDateTime;
+        sw.m_currThreadContext->m_kernelTimeEnd = tmp.QuadPart;
+        tmp.HighPart = userTime.dwHighDateTime;
+        tmp.LowPart = userTime.dwLowDateTime;
+        sw.m_currThreadContext->m_userTimeEnd = tmp.QuadPart;
+      }
       sw.ShowCallstack(hThread, maxDepth);
       g_allThreadSamples++;
       sw.m_currThreadContext->m_totalSamples++;
@@ -615,7 +637,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {
 
 #include <wx/wfstream.h>
 #include <wx/txtstrm.h>
-enum {LSD_FILEVERSION = 1};
+enum {LSD_FILEVERSION = 2};
 bool LoadSampleData(const wxString &fn) {
 
   g_bNewProfileData = false;
@@ -660,6 +682,34 @@ bool LoadSampleData(const wxString &fn) {
 
     int nFs = 0;
     in >> nFs;
+
+    if (fileVersion > 1) {
+      if (in.ReadWord() != "KernelTime") {
+        return false;
+      }
+
+      int kt;
+      in >> kt;
+      tsi->m_kernelTimeEnd = 10000 * kt;
+      tsi->m_kernelTimeStart = 0;
+
+
+      if (in.ReadWord() != "UserTime") {
+        return false;
+      }
+      int ut;
+      in >> ut;
+      tsi->m_userTimeEnd = 10000 * ut;
+      tsi->m_userTimeStart = 0;
+
+      if (in.ReadWord() != "RunningTime") {
+        return false;
+      }    
+      tsi->m_firstTickCount = 0;    
+      int rt;
+      in >> rt;
+      tsi->m_lastTickCount = rt;
+    }
     
     for (int fsi = 0; fsi < nFs; fsi++) {      
       FunctionSample fs;
@@ -768,6 +818,17 @@ bool SaveSampleData(const wxString &fn) {
 
     out << "Function_samples ";
     out << tsi->m_functionSamples.size() << endl;
+
+    out << "KernelTime ";
+    out << (int)((tsi->m_kernelTimeEnd - tsi->m_kernelTimeStart) / 10000) << endl;
+
+    out << "UserTime ";
+    out << (int)((tsi->m_userTimeEnd - tsi->m_userTimeStart) / 10000) << endl;
+
+
+    out << "RunningTime ";
+    out << (int)(tsi->m_lastTickCount - tsi->m_firstTickCount) << endl;
+    
 
     for (std::map<std::string, FunctionSample>::iterator fsit = tsi->m_functionSamples.begin();
          fsit != tsi->m_functionSamples.end(); ++fsit) {
