@@ -2,7 +2,7 @@ Release 0.8.6, Jan 11 2008
 
 - PDF user manual included
 - Progress dialog shows loading of debug info
-- Prompting for saving of profile data before closign program/profiling again/loading a profile from file
+- Prompting for saving of profile data before closing program/profiling again/loading a profile from file
 - Crash fix when clicking on profile view column headers
 - Installer improvements
 
