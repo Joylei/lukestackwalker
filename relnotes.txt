@@ -1,4 +1,7 @@
-Release 0.8.6, Jan 11 2008
+Release 0.8.7, Jan 27 2009
+- Display(+Save/Load) of CPU time used by each thread in the thread 
+
+Release 0.8.6, Jan 11 2009
 
 - PDF user manual included
 - Progress dialog shows loading of debug info
