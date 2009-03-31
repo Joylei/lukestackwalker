@@ -1,3 +1,7 @@
+Release 0.8.8, March 31 2009
+- Show user manual from Help menu
+- Profiling of an already running program
+
 Release 0.8.7, Jan 27 2009
 - Display(+Save/Load) of CPU time used by each thread in the thread 
 
@@ -10,5 +14,4 @@ Release 0.8.6, Jan 11 2009
 - Installer improvements
 
 ReleaSE 0.8.5
-
 - Initial release

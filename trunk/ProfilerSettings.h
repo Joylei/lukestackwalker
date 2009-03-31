@@ -3,17 +3,19 @@
 #include <list>
 #include <map>
 
-enum {CURRENT_VERSION = 6};
+enum {CURRENT_VERSION = 7};
 
 class ProfilerSettings {
 public:
   ProfilerSettings() {
     m_sampleDepth = 0;
-    m_samplingStartDelay = 0;
-    m_samplingTime = 0;
+    m_samplingStartDelay = 5;
+    m_samplingTime = 30;
     m_bChanged = false;
     m_bConnectToSymServer = true;
+    m_bAttachToProcess = true;
   }
+  bool m_bAttachToProcess;
   bool m_bChanged;
   bool m_bConnectToSymServer;
   wxString m_executable;

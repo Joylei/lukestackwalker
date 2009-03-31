@@ -569,29 +569,36 @@ char *MergeEnvironment(ProfilerSettings *settings) {
   return ret;
 }
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {  
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId) {  
 
   g_threadSamples.clear();
   g_allThreadSamples = 0;
   g_totalModules = 0;
   g_loadedModules = 0;
 
+  PROCESS_INFORMATION pi;
 
-  wxLogMessage("Launching executable %s.", settings->m_executable.c_str());
+  if (!settings->m_bAttachToProcess) {
+    wxLogMessage("Launching executable %s.", settings->m_executable.c_str());
 
-  char *env = MergeEnvironment(settings);
+    char *env = MergeEnvironment(settings);
 
-  status->secondsLeftToStart = settings->m_samplingStartDelay;
-  PROCESS_INFORMATION pi = LaunchTarget(settings->m_executable.c_str(),
-    settings->m_commandLineArgs.c_str(), settings->m_currentDirectory.c_str(), env);
+    status->secondsLeftToStart = settings->m_samplingStartDelay;
+    pi = LaunchTarget(settings->m_executable.c_str(),
+      settings->m_commandLineArgs.c_str(), settings->m_currentDirectory.c_str(), env);
 
-  delete [] env;
+    delete [] env;
 
-  if (!pi.dwProcessId) {
-    return false;
+    if (!pi.dwProcessId) {
+      return false;
+    }
+  } else {
+    pi.dwProcessId = processId;
   }
   timeBeginPeriod(1);
-  WaitForInputIdle(pi.hProcess, 500);
+  if (!settings->m_bAttachToProcess) {
+    WaitForInputIdle(pi.hProcess, 500);
+  }
   std::string debugPaths;
   for (std::list<wxString>::iterator it = settings->m_debugInfoPaths.begin();
     it != settings->m_debugInfoPaths.end(); ++it) {
@@ -616,9 +623,11 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status) {
   if (!status->bFinishedSampling) {
     sampleSpeed = ProfileProcess(pi.dwProcessId, debugPaths.c_str(), settings->m_sampleDepth, settings->m_samplingTime, status, settings->m_bConnectToSymServer);
   }
-  TerminateProcess(pi.hProcess, 0);
-  CloseHandle( pi.hProcess );
-  CloseHandle( pi.hThread );
+  if (!settings->m_bAttachToProcess) {
+    TerminateProcess(pi.hProcess, 0);
+    CloseHandle( pi.hProcess );
+    CloseHandle( pi.hThread );
+  }
   wxLogMessage("Sorting profile data.");
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {     

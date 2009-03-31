@@ -45,6 +45,7 @@ bool ProfilerSettings::SaveAs(std::string fname) {
     fprintf(f, "variable=%s\n", it->first.c_str());
     fprintf(f, "value=%s\n", it->second.c_str());
   }
+  fprintf(f, "attach to process=%d\n", m_bAttachToProcess);
 
   m_bChanged = false;
   return (fclose(f) == 0);
@@ -139,6 +140,13 @@ bool ProfilerSettings::Load(std::string fname) {
       fscanf(f, " value =%1023[^\n]", val);
       m_environmentVariables[var] = val;
     }
+  }
+  if (fileVer >= 7) {
+    int attach = 0;
+    fscanf(f, "attach to process=%d\n", &attach);
+    m_bAttachToProcess = !!attach;
+  } else {
+    m_bAttachToProcess = false;
   }
 
   

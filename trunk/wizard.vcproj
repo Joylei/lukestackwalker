@@ -240,6 +240,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\ProcessEnumDialog.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\profileprogress.cpp"
 				>
 			</File>
@@ -358,6 +362,10 @@
 		</File>
 		<File
 			RelativePath=".\prefs.h"
+			>
+		</File>
+		<File
+			RelativePath=".\ProcessEnumDialog.h"
 			>
 		</File>
 		<File

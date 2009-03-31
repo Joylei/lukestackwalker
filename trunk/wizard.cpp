@@ -48,7 +48,8 @@ enum {
     Manual_Sampling_Chk_ID,
     Add_Var_ID,
     Rem_Var_ID,
-    Env_Vars_ID
+    Env_Vars_ID,
+    Attach_to_Process_Chk_ID
 };
 
 
@@ -214,6 +215,9 @@ private:
     ProfilerSettings *m_pSettings;
     wxListBox *m_envVarsLb;
     wxTextCtrl *m_currentVariable;
+    wxCheckBox *m_attachToProcessCheckBox;
+    wxButton *m_addVariableButton;
+    wxButton *m_removeVariableButton;
     
     DECLARE_EVENT_TABLE()
 
@@ -224,22 +228,35 @@ public:
         Forward, Backward, Both, Neither
     };
 
+    void OnAttachClicked (wxCommandEvent &) {
+      m_executablePicker->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_currDirPicker->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_cmdLineArgsCtrl->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_envVarsLb->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_addVariableButton->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_removeVariableButton->Enable(!m_attachToProcessCheckBox->IsChecked());
+      m_currentVariable->Enable(!m_attachToProcessCheckBox->IsChecked());
+    }
+
     virtual bool TransferDataFromWindow() {
       m_pSettings->m_executable = m_executablePicker->GetPath();
       m_pSettings->m_commandLineArgs = m_cmdLineArgsCtrl->GetValue();
       m_pSettings->m_currentDirectory = m_currDirPicker->GetPath();
+      m_pSettings->m_bAttachToProcess = m_attachToProcessCheckBox->IsChecked();
 
-      if (m_pSettings->m_currentDirectory.empty()) {
+      if (m_pSettings->m_currentDirectory.empty() && !m_pSettings->m_executable.empty()) {
         wxFileName fn(m_pSettings->m_executable);
         m_pSettings->m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
       }
 
-      if (!wxFileName::DirExists(m_pSettings->m_currentDirectory)) {
-        char buf[2048];
-        sprintf(buf, "Directory [%s] does not exist, would you like to create it?", m_pSettings->m_currentDirectory.c_str());
-        wxMessageDialog dlg(this, buf, "Current directory does not exist", wxYES_NO);
-        if (dlg.ShowModal() == wxID_YES) {
-          wxFileName::Mkdir(m_pSettings->m_currentDirectory, 0777, wxPATH_MKDIR_FULL);
+      if (!m_pSettings->m_bAttachToProcess) {
+        if (!wxFileName::DirExists(m_pSettings->m_currentDirectory)) {
+          char buf[2048];
+          sprintf(buf, "Directory [%s] does not exist, would you like to create it?", m_pSettings->m_currentDirectory.c_str());
+          wxMessageDialog dlg(this, buf, "Current directory does not exist", wxYES_NO);
+          if (dlg.ShowModal() == wxID_YES) {
+            wxFileName::Mkdir(m_pSettings->m_currentDirectory, 0777, wxPATH_MKDIR_FULL);
+          }
         }
       }
 
@@ -255,13 +272,15 @@ public:
       m_executablePicker->SetPath(m_pSettings->m_executable);
       m_cmdLineArgsCtrl->SetValue(m_pSettings->m_commandLineArgs);
       m_currDirPicker->SetPath(m_pSettings->m_currentDirectory);
+      m_attachToProcessCheckBox->SetValue(m_pSettings->m_bAttachToProcess);
       m_envVarsLb->Clear();
       for (std::map<wxString, wxString>::iterator it = m_pSettings->m_environmentVariables.begin();
            it != m_pSettings->m_environmentVariables.end(); ++it) {
          wxString val = it->first + wxString("=") + it->second;
          m_envVarsLb->Insert(val, m_envVarsLb->GetCount());
       }
-
+      wxCommandEvent dummy;
+      OnAttachClicked(dummy);
       return true;
     }
 
@@ -272,6 +291,10 @@ public:
                                                 wxDefaultPosition, wxSize(350, 20));
             
       wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
+
+      m_attachToProcessCheckBox = new wxCheckBox(this, Attach_to_Process_Chk_ID, "Attach to an existing process");
+
+      mainSizer->Add(m_attachToProcessCheckBox, 0, wxALL, 5);
 
       mainSizer->Add(new wxStaticText(this, wxID_ANY, _T("Executable file to profile:")), 0, wxALL, 5);
 
@@ -304,8 +327,10 @@ public:
       {
         wxBoxSizer *subSizer = new wxBoxSizer(wxHORIZONTAL);          
         mainSizer->Add(subSizer, 0, wxLEFT | wxRIGHT | wxBOTTOM, 5);
-        subSizer->Add(new wxButton(this, Rem_Var_ID, _T("Remove variable")), 0, wxRIGHT | wxBOTTOM, 5);
-        subSizer->Add(new wxButton(this, Add_Var_ID, _T("Add/Modify variable")), 0, wxRIGHT | wxBOTTOM, 5);
+        m_removeVariableButton = new wxButton(this, Rem_Var_ID, _T("Remove variable"));
+        subSizer->Add(m_removeVariableButton, 0, wxRIGHT | wxBOTTOM, 5);
+        m_addVariableButton = new wxButton(this, Add_Var_ID, _T("Add/Modify variable"));
+        subSizer->Add(m_addVariableButton, 0, wxRIGHT | wxBOTTOM, 5);
       }
 
       SetSizer(mainSizer);
@@ -374,6 +399,7 @@ BEGIN_EVENT_TABLE(ProfilerSettingsTargetPage, wxWizardPageSimple)
     EVT_BUTTON(Add_Var_ID, ProfilerSettingsTargetPage::OnAddVarClicked)
     EVT_BUTTON(Rem_Var_ID, ProfilerSettingsTargetPage::OnRemoveVarClicked)
     EVT_LISTBOX(Env_Vars_ID, OnItemSelected)
+    EVT_CHECKBOX(Attach_to_Process_Chk_ID, ProfilerSettingsTargetPage::OnAttachClicked)
 END_EVENT_TABLE()
 
 
