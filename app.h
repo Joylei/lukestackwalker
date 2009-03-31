@@ -16,6 +16,7 @@ enum
     View_Ignore_Function,
     File_Load_Source,
     Results_Grid,
+    Help_ShowManual
 };
 
 
@@ -78,6 +79,7 @@ public:
     void OnQuit(wxCommandEvent& event);
     void OnClose(wxCloseEvent &ev);
     void OnAbout(wxCommandEvent& event);
+    void OnShowManual(wxCommandEvent& event);
     void OnRunWizard(wxCommandEvent& event);
     void OnFileSaveSettings(wxCommandEvent& event);
     void OnFileSaveSettingsAs(wxCommandEvent& event);

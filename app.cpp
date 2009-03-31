@@ -148,6 +148,7 @@ END_EVENT_TABLE()
 BEGIN_EVENT_TABLE(StackWalkerMainWnd, wxFrame)
 EVT_MENU(Wizard_Quit,             StackWalkerMainWnd::OnQuit)
 EVT_MENU(Wizard_About,            StackWalkerMainWnd::OnAbout)
+EVT_MENU(Help_ShowManual,            StackWalkerMainWnd::OnShowManual)
 EVT_MENU(Wizard_RunModal,         StackWalkerMainWnd::OnRunWizard)
 EVT_MENU(File_Save_Settings,      StackWalkerMainWnd::OnFileSaveSettings)
 EVT_MENU(File_Save_Settings_As,   StackWalkerMainWnd::OnFileSaveSettingsAs)
@@ -324,7 +325,8 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   viewMenu->Append(View_Ignore_Function, _T("&Ignore/Count in This function\tF2"), _T("Toggles whether this function is included in total sample count calculation."));
 
   wxMenu *helpMenu = new wxMenu;
-  helpMenu->Append(Wizard_About, _T("&About...\tF1"), _T("Show about dialog"));
+  helpMenu->Append(Help_ShowManual, _T("&User's Manual...\tF1"), _T("Show Luke Stackwalker user's manual (requires a PDF reader application)."));
+  helpMenu->Append(Wizard_About, _T("&About..."), _T("Show about dialog"));
 
   // now append the freshly created menu to the menu bar...
   wxMenuBar *menuBar = new wxMenuBar();
@@ -528,6 +530,14 @@ void StackWalkerMainWnd::OnAbout(wxCommandEvent& WXUNUSED(event)) {
     VERSION_MAJOR, VERSION_MINOR, VERSION_BUGFIX);
 
   wxMessageBox(buf, _T("About Luke StackWalker"), wxOK | wxICON_INFORMATION, this);
+}
+
+void StackWalkerMainWnd::OnShowManual(wxCommandEvent& WXUNUSED(event)) {
+  char moduleFileName[1024] = {0};
+  GetModuleFileName(0, moduleFileName, sizeof(moduleFileName));
+  wxString fn = moduleFileName;
+  fn = fn.BeforeLast('\\') + wxString("\\luke stackwalker manual.pdf");
+  ShellExecute(0, "open", fn.c_str(), "", "", SW_SHOWNORMAL);
 }
 
 void StackWalkerMainWnd::OnRunWizard(wxCommandEvent& WXUNUSED(event)) {
@@ -940,8 +950,8 @@ void StackWalkerMainWnd::ProfileDataChanged() {
 }
 
 
-void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
-  if (m_settings.m_executable.empty()) {
+void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {  
+  if (m_settings.m_executable.empty() && !m_settings.m_bAttachToProcess) {
     wxMessageDialog dlg(this, _("You need to set the name of the executable to be profiled first.\n"
                                 "Use the 'Profile/Project setup...' menu command to do that."), _("Error"), wxOK|wxICON_ERROR);
     dlg.ShowModal();
@@ -961,7 +971,7 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
     m_settings.m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
   }  
 
-  if (!SampleProcessWithDialogProgress(this, &m_settings)) {    
+  if (!SampleProcessWithDialogProgress(this, &m_settings)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
   }
 

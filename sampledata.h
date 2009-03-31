@@ -114,7 +114,7 @@ extern bool g_bNewProfileData;
 
 extern std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status);
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId);
 
 void SelectThreadForDisplay(unsigned int threadId, bool bSelect = true);
 void ProduceDisplayData();

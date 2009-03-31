@@ -22,6 +22,7 @@ public:
     bool m_bTitleChangedToLoading;
     wxTimer m_timer;
     wxStaticText *m_staticText;
+    unsigned int m_processId;
 
     void OnCancelButton(wxCommandEvent& event);
     void OnActionButton(wxCommandEvent& event);
@@ -116,7 +117,7 @@ void ProfileProgressDialog::OnClose(wxCloseEvent&) {
 }
 
 wxThread::ExitCode ProfileProgressDialog::Entry() {
-  m_bProfileReturnValue = SampleProcess(m_settings, &m_status);
+  m_bProfileReturnValue = SampleProcess(m_settings, &m_status, m_processId);
   m_status.bFinishedSampling = true;
   return 0;
 }
@@ -176,8 +177,24 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
   }
 }
 
+
+#include "ProcessEnumDialog.h"
+
+
 bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings) {
+
+  unsigned int processid = 0;
+  if (settings->m_bAttachToProcess) {
+    ProcessEnumDialog dlg(appMainWindow);
+    int ret = dlg.ShowModal();
+    if (ret == wxID_CANCEL) {
+      return false;
+    }
+    processid = dlg.m_processId;
+  }
+
   ProfileProgressDialog dlg(appMainWindow, settings);
+  dlg.m_processId = processid; 
   dlg.wxThread::Create();
   dlg.m_timer.wxTimer::Start(200, wxTIMER_CONTINUOUS);
   dlg.wxThread::Run();
