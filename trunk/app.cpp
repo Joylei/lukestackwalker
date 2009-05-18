@@ -416,7 +416,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 
   m_logCtrl = new wxTextCtrl(m_bottomNotebook, wxID_ANY, wxEmptyString,
     wxDefaultPosition, wxDefaultSize,
-    wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE);
+    wxTE_RICH | wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE);
 
   m_bottomNotebook->AddPage( m_logCtrl, "Log", false);
 
@@ -925,11 +925,18 @@ void StackWalkerMainWnd::RefreshGridView() {
 }
 
 void StackWalkerMainWnd::ThreadSelectionChanged() {
-  int i = 0;
-  for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
-    it != g_threadSamples.end(); it++) {
-      it->second.m_bSelectedForDisplay = !!m_toolbarThreadsListPopup->GetItemState(i, wxLIST_STATE_SELECTED);
-      i++;
+  for (int i = 0; i < m_toolbarThreadsListPopup->GetItemCount(); ++i) {
+    bool bSelected = !!m_toolbarThreadsListPopup->GetItemState(i, wxLIST_STATE_SELECTED);
+    unsigned int threadId = 0;
+    wxString text = m_toolbarThreadsListPopup->GetItemText(i);
+    sscanf(text.c_str(), " 0x%X", &threadId);
+    for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
+      it != g_threadSamples.end(); it++) {
+        if (it->first == threadId) {
+          it->second.m_bSelectedForDisplay = bSelected;
+          break;
+        }
+    }
   }
   ProduceDisplayData();
   RefreshGridView();
@@ -938,14 +945,35 @@ void StackWalkerMainWnd::ThreadSelectionChanged() {
 void StackWalkerMainWnd::ProfileDataChanged() {
 
   m_toolbarThreadsListPopup->ClearAll();
-  for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
-       it != g_threadSamples.end(); it++) {
-     char buf[256];
-     sprintf(buf, "0x%X [%d samples, %d funcs, %0.2lfs CPU time]", it->first, it->second.m_totalSamples, it->second.m_sortedFunctionSamples.size(), it->second.GetCPUTime_ms()/1000.0);
-     m_toolbarThreadsListPopup->InsertItem(m_toolbarThreadsListPopup->GetItemCount(), buf);
+  std::list<std::map<unsigned int, ThreadSampleInfo>::iterator> threadsSorted;  
+  for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin(); it != g_threadSamples.end(); it++) {    
+    bool bAdded = false;
+    for (std::list<std::map<unsigned int, ThreadSampleInfo>::iterator>::iterator listpos = threadsSorted.begin(); listpos != threadsSorted.end(); ++listpos) {      
+      if (it->second.GetCPUTime_ms() > (*listpos)->second.GetCPUTime_ms()) {
+        threadsSorted.insert(listpos, it);
+        bAdded = true;
+        break;
+      }
+    }
+    if (!bAdded) {
+      threadsSorted.push_back(it);
+    }    
   }
-  m_toolbarThreadsCombo->SetText(m_toolbarThreadsListPopup->GetItemText(0));
+
+  for (std::list<std::map<unsigned int, ThreadSampleInfo>::iterator>::iterator listpos = threadsSorted.begin(); listpos != threadsSorted.end(); ++listpos) {  
+    std::map<unsigned int, ThreadSampleInfo>::iterator it = *listpos;
+    char buf[256];
+    sprintf(buf, "0x%X [%d samples, %d funcs, %0.2lfs CPU time]", it->first, it->second.m_totalSamples, it->second.m_sortedFunctionSamples.size(), it->second.GetCPUTime_ms()/1000.0);
+    m_toolbarThreadsListPopup->InsertItem(m_toolbarThreadsListPopup->GetItemCount(), buf);
+  }
   
+  for (int i = 1; i < m_toolbarThreadsListPopup->GetItemCount(); i++) {
+    m_toolbarThreadsListPopup->Select(0, false);
+  }
+  m_toolbarThreadsListPopup->Select(0, true);
+  
+  m_toolbarThreadsCombo->SetText(m_toolbarThreadsListPopup->GetItemText(0));
+  ThreadSelectionChanged();
   RefreshGridView();
 }
 
@@ -971,7 +999,7 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
     m_settings.m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
   }  
 
-  if (!SampleProcessWithDialogProgress(this, &m_settings)) {
+  if (!SampleProcessWithDialogProgress(this, &m_settings, m_logCtrl)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
   }
 

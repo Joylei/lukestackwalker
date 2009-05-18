@@ -16,14 +16,15 @@
 #include "sampledata.h"
 #include <wx/log.h>
 #include <wx/filename.h>
+#include <wx/textctrl.h>
 
 std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
 int g_allThreadSamples = 0;
 int g_totalModules = 0;
 int g_loadedModules = 0;
 bool g_bNewProfileData = false;
+static wxTextCtrl *s_pLogCtrl;
 
-// Simple implementation of an additional output to the console:
 class MyStackWalker : public StackWalker
 {
 public:
@@ -42,7 +43,16 @@ public:
     _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
     g_totalModules = totalModules;
     g_loadedModules = currentModule;
-    OnOutput(buffer);
+    wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
+    if (strlen(pdbName)) {
+      attr.SetTextColour(*wxBLACK);
+    } else {
+      attr.SetTextColour(*wxRED);
+    }
+    s_pLogCtrl->SetDefaultStyle(attr);
+    wxLogMessage(buffer);
+    attr.SetTextColour(*wxBLACK);
+    s_pLogCtrl->SetDefaultStyle(attr);
   }
 
   virtual void OnOutput(LPCSTR szText) { wxLogMessage(szText); }
@@ -569,14 +579,16 @@ char *MergeEnvironment(ProfilerSettings *settings) {
   return ret;
 }
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId) {  
-
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logCtrl) {  
+  
+  s_pLogCtrl = logCtrl;
   g_threadSamples.clear();
   g_allThreadSamples = 0;
   g_totalModules = 0;
   g_loadedModules = 0;
 
   PROCESS_INFORMATION pi;
+  memset(&pi, 0, sizeof(pi));
 
   if (!settings->m_bAttachToProcess) {
     wxLogMessage("Launching executable %s.", settings->m_executable.c_str());
@@ -598,6 +610,12 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   timeBeginPeriod(1);
   if (!settings->m_bAttachToProcess) {
     WaitForInputIdle(pi.hProcess, 500);
+  }
+  if (WaitForSingleObject(pi.hProcess, 500) != WAIT_TIMEOUT) {
+    wxLogMessage("The executable %s exited already, maybe it's missing a DLL?.", settings->m_executable.c_str());
+    CloseHandle( pi.hProcess );
+    CloseHandle( pi.hThread );
+    return false;
   }
   std::string debugPaths;
   for (std::list<wxString>::iterator it = settings->m_debugInfoPaths.begin();
@@ -804,6 +822,13 @@ bool LoadSampleData(const wxString &fn) {
   
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
+
+  wxLogMessage("Sorting profile data.");
+  for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
+       it != g_threadSamples.end(); it++) {     
+    SortFunctionSamples(&it->second);
+  }
+
   ProduceDisplayData();
   return true;
 }

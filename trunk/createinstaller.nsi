@@ -88,13 +88,11 @@ Section "MainSection" SEC01
   File "dbghelp.dll"
   File "config"
   File "props.txt"
-  File "msvcr80.dll"
-  File "msvcp80.dll"
-  File "x86_Microsoft.VC80.CRT_1fc8b3b9a1e18e3b_8.0.50727.3053_x-ww_b80fa8ca.manifest"
   File "bitmaps\lsp.ico"
   File "bitmaps\lsd.ico"
   File "manual\luke stackwalker manual.pdf"
   File "relnotes.txt"
+  File "vcredist_x86.exe"
 
 SectionEnd
 
@@ -135,6 +133,7 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
+  ExecWait "$INSTDIR\vcredist_x86.exe"
 SectionEnd
 
 
@@ -189,6 +188,7 @@ Section Uninstall
   Delete "$INSTDIR\lsd.ico"
   Delete "$INSTDIR\luke stackwalker manual.pdf"
   Delete "$INSTDIR\relnotes.txt"
+  Delete "$INSTDIR\vcredist_x86.exe"
 
 
 

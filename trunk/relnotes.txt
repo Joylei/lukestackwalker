@@ -1,3 +1,10 @@
+Release 0.8.9, May 18th 2009
+- Properly instal MSVC runtime (the program has probably not worked before for people without the MSVC 2005 SP1 runtime installed)
+- sort threads by CPU time used in toolbar thread selection list
+- debug info loading log line in red colour if debug info was not found for a module
+- display number of sampled top-level functions correctly after loading sample data from a file 
+- detect if the profiled program exits immediately (it's probably missing a DLL or something)
+
 Release 0.8.8, March 31 2009
 - Show user manual from Help menu
 - Profiling of an already running program
