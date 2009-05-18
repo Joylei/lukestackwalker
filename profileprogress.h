@@ -1,2 +1,3 @@
 #pragma once
-bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings);
+class wxTextCtrl;
+bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings, wxTextCtrl *logControl);

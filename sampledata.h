@@ -113,8 +113,9 @@ extern int g_loadedModules;
 extern bool g_bNewProfileData;
 
 extern std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
+class wxTextCtrl;
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId);
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logControl);
 
 void SelectThreadForDisplay(unsigned int threadId, bool bSelect = true);
 void ProduceDisplayData();

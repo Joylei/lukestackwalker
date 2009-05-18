@@ -7,10 +7,12 @@
 #include "profileprogress.h"
 #include <wx/timer.h>
 #include <wx/log.h>
+#include <wx/textCtrl.h>
 #include <wx/stattext.h>
 
 class ProfileProgressDialog : public wxDialog, public wxThread {
 public:
+    wxTextCtrl *m_logControl;
     wxGauge *m_gauge;
     wxButton *m_cancelButton;
     wxButton *m_actionButton;
@@ -117,7 +119,7 @@ void ProfileProgressDialog::OnClose(wxCloseEvent&) {
 }
 
 wxThread::ExitCode ProfileProgressDialog::Entry() {
-  m_bProfileReturnValue = SampleProcess(m_settings, &m_status, m_processId);
+  m_bProfileReturnValue = SampleProcess(m_settings, &m_status, m_processId, m_logControl);
   m_status.bFinishedSampling = true;
   return 0;
 }
@@ -181,7 +183,7 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
 #include "ProcessEnumDialog.h"
 
 
-bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings) {
+bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings, wxTextCtrl *logControl) {
 
   unsigned int processid = 0;
   if (settings->m_bAttachToProcess) {
@@ -195,6 +197,7 @@ bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *
 
   ProfileProgressDialog dlg(appMainWindow, settings);
   dlg.m_processId = processid; 
+  dlg.m_logControl = logControl;
   dlg.wxThread::Create();
   dlg.m_timer.wxTimer::Start(200, wxTIMER_CONTINUOUS);
   dlg.wxThread::Run();
