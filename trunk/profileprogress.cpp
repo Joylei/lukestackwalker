@@ -15,7 +15,7 @@ public:
     wxTextCtrl *m_logControl;
     wxGauge *m_gauge;
     wxButton *m_cancelButton;
-    wxButton *m_actionButton;
+    wxButton *m_actionButton;    
     ProfileProgressDialog(wxWindow *parent, ProfilerSettings *settings);
     ProfilerSettings *m_settings;
     ProfilerProgressStatus m_status;
@@ -28,6 +28,7 @@ public:
 
     void OnCancelButton(wxCommandEvent& event);
     void OnActionButton(wxCommandEvent& event);
+    void OnPauseContinueButton(wxCommandEvent& event);
 
     void OnClose(wxCloseEvent& event);
     virtual ExitCode Entry();
@@ -39,13 +40,13 @@ private:
 };
 
 enum {
-  ID_CANCELBUTTON = wxID_HIGHEST + 1,
+  ID_CANCELBUTTON = wxID_HIGHEST + 1,  
   ID_ACTIONBUTTON
 };
 
 BEGIN_EVENT_TABLE(ProfileProgressDialog, wxDialog)
     EVT_BUTTON(ID_CANCELBUTTON, ProfileProgressDialog::OnCancelButton)
-    EVT_BUTTON(ID_ACTIONBUTTON, ProfileProgressDialog::OnActionButton)
+    EVT_BUTTON(ID_ACTIONBUTTON, ProfileProgressDialog::OnActionButton)    
     EVT_CLOSE(ProfileProgressDialog::OnClose)
     EVT_TIMER(wxID_ANY, ProfileProgressDialog::OnTimer)
 END_EVENT_TABLE()
@@ -72,8 +73,7 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
     sizerTop->Add(sizerBot, 1, wxEXPAND, 5);
 
     m_actionButton = new wxButton(this, ID_ACTIONBUTTON, _T("Start Sampling"));
-    sizerBot->Add(m_actionButton, 1, wxEXPAND | wxALL, 5);
-
+    sizerBot->Add(m_actionButton, 1, wxEXPAND | wxALL, 5);   
     
     m_cancelButton = new wxButton(this, ID_CANCELBUTTON, _T("Cancel"));
     sizerBot->Add(m_cancelButton, 1, wxEXPAND | wxALL, 5);
@@ -99,10 +99,25 @@ void ProfileProgressDialog::OnActionButton(wxCommandEvent& WXUNUSED(event)) {
   }
 }
 
-void ProfileProgressDialog::OnCancelButton(wxCommandEvent& WXUNUSED(event)) {
+void ProfileProgressDialog::OnCancelButton(wxCommandEvent& event) {
+  if (m_bTitleChanged) {
+    OnPauseContinueButton(event);
+    return;
+  }
   m_status.bFinishedSampling = true;
   m_status.bStartedSampling = true;
   EndProfiling();
+}
+
+void ProfileProgressDialog::OnPauseContinueButton(wxCommandEvent& WXUNUSED(event)) {
+  m_status.bSamplingPaused = !m_status.bSamplingPaused;
+  if (m_status.bSamplingPaused) {
+    m_cancelButton->SetLabel("Continue");
+    SetLabel("Paused");
+  } else {
+    m_cancelButton->SetLabel("Pause");
+    SetLabel("Sampling...");
+  }
 }
 
 
@@ -142,6 +157,7 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
       if (!m_bTitleChangedToLoading) {
         m_bTitleChangedToLoading = true;
         SetLabel("Loading debug info...");
+        m_actionButton->Enable(false);
       }
       char buf[256];
       sprintf(buf, "%d of %d modules loaded", g_loadedModules, g_totalModules);
@@ -153,7 +169,9 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
         m_gauge->SetValue(100 * g_loadedModules);
       }
     } else {
-      if (!m_bTitleChanged) {
+      if (!m_bTitleChanged) {        
+        m_actionButton->Enable(true);
+        m_cancelButton->SetLabel("Pause");
         SetLabel("Sampling...");
         m_actionButton->SetLabel("Stop Sampling");
         m_bTitleChanged = true;
@@ -162,7 +180,8 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
         char buf[256];
         sprintf(buf, "%d samples collected", g_allThreadSamples);
         m_staticText->SetLabel(buf);
-        m_gauge->Pulse();   
+        if (!m_status.bSamplingPaused)
+          m_gauge->Pulse();   
       } else {
         int val = m_settings->m_samplingTime - m_status.secondsLeftToProfile;
         m_gauge->SetRange(100 * m_settings->m_samplingTime);

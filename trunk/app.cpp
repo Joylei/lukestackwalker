@@ -176,9 +176,13 @@ EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, StackWalkerMainWnd::OnMRUFile)
 
 EVT_CLOSE(StackWalkerMainWnd::OnClose)
 
+EVT_SPLITTER_SASH_POS_CHANGING(HorizontalSplitter, StackWalkerMainWnd::OnHorizontalSplitterChanging)  
+
+
 END_EVENT_TABLE()
 
 IMPLEMENT_APP(MyApp)
+
 
 // ----------------------------------------------------------------------------
 // the application class
@@ -409,7 +413,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 
 
 
-  m_vertSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER /*wxSP_NO_XP_THEME|wxSP_3D|wxSP_LIVE_UPDATE*/);
+  m_vertSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER);
 
   m_bottomNotebook = new wxNotebook(m_vertSplitter, wxID_ANY,
     wxDefaultPosition, wxDefaultSize, wxNB_TOP);
@@ -426,7 +430,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_bottomNotebook->AddPage( m_callstackView , "Callers", false);
 
 
-  m_horzSplitter = new wxSplitterWindow(m_vertSplitter, wxID_ANY, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER /*wxSP_NO_XP_THEME|wxSP_3D|wxSP_LIVE_UPDATE*/);
+  m_horzSplitter = new wxSplitterWindow(m_vertSplitter, HorizontalSplitter, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER);
 
   m_sourceEdit = new Edit(m_horzSplitter);
 
@@ -454,6 +458,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_horizontalSplitterRestorePosition = -1;
   m_resultsGrid->SetRowLabelSize(0);
   m_fileHistory.Load(*wxConfigBase::Get());
+  m_gridWidth = 0;
 }
 
 StackWalkerMainWnd::~StackWalkerMainWnd() {
@@ -922,6 +927,21 @@ void StackWalkerMainWnd::RefreshGridView() {
   m_resultsGrid->SetSelectionMode(wxGrid::wxGridSelectRows);
   m_resultsGrid->SetCursorMode();
   m_resultsGrid->EndBatch();
+  int size = 0;
+  for (int i = 0; i < m_resultsGrid->GetNumberCols(); i++) {
+    size += m_resultsGrid->GetColSize(i);  
+  }
+  m_gridWidth = size + 16;
+  wxSize clientSz = GetClientSize();
+
+  int pos = clientSz.GetX() / 2;
+
+  wxSize clientSize = m_resultsGrid->GetClientSize();
+  wxSize totalSize = m_resultsGrid->GetSize();    
+  int extra = totalSize.GetX() - clientSize.GetX();  
+  if (pos > m_gridWidth + extra)
+    pos = m_gridWidth + extra;
+  m_horzSplitter->SetSashPosition(pos);
 }
 
 void StackWalkerMainWnd::ThreadSelectionChanged() {
@@ -1133,4 +1153,15 @@ void StackWalkerMainWnd::OnFileLoadProfile(wxCommandEvent&) {
     return;
 
   LoadProfileData(fdlg.GetPath().c_str());
+}
+
+void StackWalkerMainWnd::OnHorizontalSplitterChanging(wxSplitterEvent& event) {
+  int pos = event.GetSashPosition();
+  int extra = 0;
+  wxSize clientSize = m_resultsGrid->GetClientSize();
+  wxSize totalSize = m_resultsGrid->GetSize();    
+  extra = totalSize.GetX() - clientSize.GetX();  
+  if (pos > m_gridWidth + extra) {
+    event.SetSashPosition(m_gridWidth + extra);
+  }
 }

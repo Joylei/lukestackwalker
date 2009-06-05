@@ -1,3 +1,9 @@
+Release 0.9.0, June 5th 2009
+- Bug Fix : profiling an already running program, "attach to process"  was broken in 0.8.9
+- canceling profiling during module loading works now
+- sample collection can be paused and continued
+- limited horizontal splitter movement - cannot make left side bigger than size of data grid
+
 Release 0.8.9, May 18th 2009
 - Properly instal MSVC runtime (the program has probably not worked before for people without the MSVC 2005 SP1 runtime installed)
 - sort threads by CPU time used in toolbar thread selection list
