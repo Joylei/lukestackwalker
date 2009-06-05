@@ -16,7 +16,8 @@ enum
     View_Ignore_Function,
     File_Load_Source,
     Results_Grid,
-    Help_ShowManual
+    Help_ShowManual,
+    HorizontalSplitter
 };
 
 
@@ -36,6 +37,7 @@ class wxSplitterWindow;
 class wxToolBar;
 class wxComboCtrl;
 class wxListViewComboPopup;
+class wxSplitterEvent;
 
 #include "CallStackView.h"
 
@@ -60,6 +62,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   wxString m_currentFunction;
   wxString m_currentSourceFile;
   wxFileHistory m_fileHistory;
+  int m_gridWidth;
 
   void UpdateTitleBar();
   void ClearContext();
@@ -107,6 +110,7 @@ public:
     void ThreadSelectionChanged();
     void LoadSettings(const char *fileName);
     void LoadProfileData(const char *fileName);
+    void OnHorizontalSplitterChanging(wxSplitterEvent& event);
 private:
     // any class wishing to process wxWidgets events must use this macro
     DECLARE_EVENT_TABLE()

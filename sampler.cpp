@@ -33,12 +33,14 @@ public:
   Caller *m_prevCaller;
   bool m_bSkipFirstEntry;
   ThreadSampleInfo *m_currThreadContext;
+  ProfilerProgressStatus *m_status;
 
-  MyStackWalker(int options, DWORD dwProcessId, HANDLE hProcess, LPCSTR debugInfoPath) : StackWalker(options, debugInfoPath, dwProcessId, hProcess) {
+  MyStackWalker(int options, DWORD dwProcessId, HANDLE hProcess, LPCSTR debugInfoPath, ProfilerProgressStatus *status) : StackWalker(options, debugInfoPath, dwProcessId, hProcess) {
     m_bSkipFirstEntry = false;
+    m_status = status;
   }
 
-  void OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG, int totalModules, int currentModule) {
+  bool OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG, int totalModules, int currentModule) {
     CHAR buffer[STACKWALK_MAX_NAMELEN];
     _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
     g_totalModules = totalModules;
@@ -53,6 +55,7 @@ public:
     wxLogMessage(buffer);
     attr.SetTextColour(*wxBLACK);
     s_pLogCtrl->SetDefaultStyle(attr);
+    return !m_status->bFinishedSampling;
   }
 
   virtual void OnOutput(LPCSTR szText) { wxLogMessage(szText); }
@@ -220,7 +223,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
   if (!bConnectToServer) {
     options &= ~MyStackWalker::SymUseSymSrv;
   }
-  MyStackWalker sw(options, dwProcessId, hProcess, debugInfoPath);
+  MyStackWalker sw(options, dwProcessId, hProcess, debugInfoPath, status);
   sw.LoadModules();
 
 
@@ -304,6 +307,15 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
     if (!end) { // 1st sample loads symbols; set end time after that...
       end = time(0) + duration;
     }
+
+    if (status->bSamplingPaused) {
+      time_t left = end - time(0);
+      while (status->bSamplingPaused && !status->bFinishedSampling) {
+        Sleep(200);
+      }
+      end = time(0) + left;
+    }
+
     status->secondsLeftToProfile = end - time(0);
     if (status->bFinishedSampling)
       break;
@@ -610,13 +622,14 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   timeBeginPeriod(1);
   if (!settings->m_bAttachToProcess) {
     WaitForInputIdle(pi.hProcess, 500);
+    if (WaitForSingleObject(pi.hProcess, 500) != WAIT_TIMEOUT) {
+      wxLogMessage("The executable %s exited already, maybe it's missing a DLL?.", settings->m_executable.c_str());
+      CloseHandle( pi.hProcess );
+      CloseHandle( pi.hThread );
+      return false;
+    }
   }
-  if (WaitForSingleObject(pi.hProcess, 500) != WAIT_TIMEOUT) {
-    wxLogMessage("The executable %s exited already, maybe it's missing a DLL?.", settings->m_executable.c_str());
-    CloseHandle( pi.hProcess );
-    CloseHandle( pi.hThread );
-    return false;
-  }
+  
   std::string debugPaths;
   for (std::list<wxString>::iterator it = settings->m_debugInfoPaths.begin();
     it != settings->m_debugInfoPaths.end(); ++it) {

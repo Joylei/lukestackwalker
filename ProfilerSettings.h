@@ -69,12 +69,14 @@ public:
 struct ProfilerProgressStatus {
   int secondsLeftToStart;
   bool bStartedSampling;
+  bool bSamplingPaused;
   int secondsLeftToProfile;
-  bool bFinishedSampling;  
+  bool bFinishedSampling;
   ProfilerProgressStatus() {
     secondsLeftToStart = 0;
     secondsLeftToProfile = 0;
     bStartedSampling = false;
     bFinishedSampling = false;    
+    bSamplingPaused = false;
   }
 };

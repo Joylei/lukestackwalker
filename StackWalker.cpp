@@ -321,34 +321,7 @@ public:
   HANDLE m_hProcess;
   LPSTR m_szSymPath;
 
-/*typedef struct IMAGEHLP_MODULE64_V3 {
-    DWORD    SizeOfStruct;           // set to sizeof(IMAGEHLP_MODULE64)
-    DWORD64  BaseOfImage;            // base load address of module
-    DWORD    ImageSize;              // virtual size of the loaded module
-    DWORD    TimeDateStamp;          // date/time stamp from pe header
-    DWORD    CheckSum;               // checksum from the pe header
-    DWORD    NumSyms;                // number of symbols in the symbol table
-    SYM_TYPE SymType;                // type of symbols loaded
-    CHAR     ModuleName[32];         // module name
-    CHAR     ImageName[256];         // image name
-    // new elements: 07-Jun-2002
-    CHAR     LoadedImageName[256];   // symbol file name
-    CHAR     LoadedPdbName[256];     // pdb file name
-    DWORD    CVSig;                  // Signature of the CV record in the debug directories
-    CHAR         CVData[MAX_PATH * 3];   // Contents of the CV record
-    DWORD    PdbSig;                 // Signature of PDB
-    GUID     PdbSig70;               // Signature of PDB (VC 7 and up)
-    DWORD    PdbAge;                 // DBI age of pdb
-    BOOL     PdbUnmatched;           // loaded an unmatched pdb
-    BOOL     DbgUnmatched;           // loaded an unmatched dbg
-    BOOL     LineNumbers;            // we have line number information
-    BOOL     GlobalSymbols;          // we have internal symbol information
-    BOOL     TypeInfo;               // we have type information
-    // new elements: 17-Dec-2003
-    BOOL     SourceIndexed;          // pdb supports source server
-    BOOL     Publics;                // contains public symbols
-};
-*/
+
 typedef struct IMAGEHLP_MODULE64_V2 {
  DWORD SizeOfStruct;
  DWORD64 BaseOfImage; 
@@ -522,7 +495,9 @@ private:
     int cnt = 0;
     while (keepGoing)
     {
-      this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize, moduleCount, cnt+1);
+      DWORD ret = this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize, moduleCount, cnt+1);
+      if (ret == ERROR_CANCELLED)
+        break;
       cnt++;
       keepGoing = !!pM32N( hSnap, &me );
     }
@@ -612,6 +587,8 @@ private:
       pGMBN(hProcess, hMods[i], tt2, TTBUFLEN );
 
       DWORD dwRes = this->LoadModule(hProcess, tt, tt2, (DWORD64) mi.lpBaseOfDll, mi.SizeOfImage, cbNeeded / sizeof hMods[0], i);
+      if (dwRes == ERROR_CANCELLED)
+        break;
       if (dwRes != ERROR_SUCCESS)
         this->m_parent->OnDbgHelpErr("LoadModule", dwRes, 0);
       cnt++;
@@ -704,7 +681,9 @@ private:
             break;
         }
       }
-      this->m_parent->OnLoadModule(img, mod, baseAddr, size, result, szSymType, Module.LoadedPdbName, fileVersion, totalModules, currentModule);
+      if (!this->m_parent->OnLoadModule(img, mod, baseAddr, size, result, szSymType, Module.LoadedPdbName, fileVersion, totalModules, currentModule)) {
+        result = ERROR_CANCELLED;
+      }
     }
     if (szImg != NULL) free(szImg);
     if (szMod != NULL) free(szMod);
@@ -1178,7 +1157,8 @@ BOOL __stdcall StackWalker::myReadProcMem(
   }
 }
 
-void StackWalker::OnLoadModule(LPCSTR, LPCSTR, DWORD64, DWORD, DWORD, LPCSTR, LPCSTR, ULONGLONG, int, int) {
+bool StackWalker::OnLoadModule(LPCSTR, LPCSTR, DWORD64, DWORD, DWORD, LPCSTR, LPCSTR, ULONGLONG, int, int) {
+  return true;
 }
 
 void StackWalker::OnCallstackEntry(CallstackEntryType eType, CallstackEntry &entry)
