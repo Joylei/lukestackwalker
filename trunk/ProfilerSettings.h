@@ -9,8 +9,8 @@ class ProfilerSettings {
 public:
   ProfilerSettings() {
     m_sampleDepth = 0;
-    m_samplingStartDelay = 5;
-    m_samplingTime = 30;
+    m_samplingStartDelay = SAMPLINGTIME_MANUALCONTROL;
+    m_samplingTime = SAMPLINGTIME_MANUALCONTROL;
     m_bChanged = false;
     m_bConnectToSymServer = true;
     m_bAttachToProcess = true;

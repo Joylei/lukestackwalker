@@ -1,3 +1,10 @@
+Release 0.9.1, Oct 20th 2009
+- Bug fix: fixed a crash when displaying call graph with very long (STL-style) function names 
+- More sensible default project settings
+- Project settings dialog suggests stack sampling depth of 1 for best accuracy, 0 for getting a good call graph
+- Sorting of processes according to executable name in "Select process to profile"-dialog
+- Displaying of sum of CPU time used in thread select combo box when multiple threads are selected
+
 Release 0.9.0, June 5th 2009
 - Bug Fix : profiling an already running program, "attach to process"  was broken in 0.8.9
 - canceling profiling during module loading works now

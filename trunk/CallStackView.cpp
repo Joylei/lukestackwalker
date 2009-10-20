@@ -69,17 +69,16 @@ void CallStackView::DoGraph(FunctionSample *fs) {
 
   for (std::list<Caller>::iterator nodeit = fs->m_callgraph.begin(); 
     nodeit != fs->m_callgraph.end(); ++nodeit) {
-      char name[512];
+      char name[1024];
       if (nodeit == fs->m_callgraph.begin()) {
-        sprintf(name, "%s\nsamples:%d", m_pSettings->DoAbbreviations(fs->m_functionName).c_str(), fs->m_sampleCount);
+        _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\nsamples:%d", m_pSettings->DoAbbreviations(fs->m_functionName).c_str(), fs->m_sampleCount);
       } else {
         wxFileName fn(nodeit->m_functionSample->m_fileName); 
         if (!nodeit->m_functionSample->m_fileName.length()) {
-          ;
-          sprintf(name, "%s\n%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
+         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
                   nodeit->m_functionSample->m_moduleName.c_str(), nodeit->m_lineNumber, nodeit->m_sampleCount);
         } else {
-          sprintf(name, "%s\n%s.%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
+         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s.%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
                   fn.GetName().c_str(), fn.GetExt().c_str(), nodeit->m_lineNumber, nodeit->m_sampleCount);
         }
       }
@@ -120,7 +119,7 @@ void CallStackView::ShowCallstackToFunction(const char *funcName) {
     if (m_fs && m_parent->GetPage(i) == this) {
       m_parent->ChangeSelection(i);
       char buf[512];
-      sprintf(buf, "Call Graph of %s", funcName);
+      _snprintf_s(buf, sizeof(buf), _TRUNCATE, "Call Graph of %s", funcName);
       m_parent->SetPageText(i, buf);
       break;
     }
