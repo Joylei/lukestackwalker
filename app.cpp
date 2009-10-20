@@ -75,11 +75,23 @@ public:
       return wxListView::GetItemText(item);
     }
     wxString str;
+    double cpuTime = 0;
     while (item >= 0) {
       wxString s2 = wxListView::GetItemText(item);
+      int threadId = 0;
+      s2 = s2.BeforeFirst(' ');
+      sscanf(s2, " 0x%x", &threadId);
+      for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin(); it != g_threadSamples.end(); it++) {
+        if (it->first == threadId)
+          cpuTime += it->second.GetCPUTime_ms()/1000.0;
+      }      
       str += s2.BeforeFirst(' ') + wxString(" ");
       item = wxListView::GetNextSelected(item);
-    }    
+    }
+    char buf[256];
+    sprintf(buf, "- %0.2lfs CPU time", cpuTime);
+    if (!str.IsEmpty())
+      str += buf;
     return str;
   }
 
@@ -390,7 +402,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   wxStaticText *threadPrompt = new wxStaticText(m_toolbar, wxID_ANY, "  Threads: ");
   m_toolbar->AddControl(threadPrompt);
 
-  m_toolbarThreadsCombo = new wxComboCtrl(m_toolbar,wxID_ANY,wxEmptyString, wxDefaultPosition, wxSize(250,wxDefaultCoord), wxCB_READONLY);
+  m_toolbarThreadsCombo = new wxComboCtrl(m_toolbar,wxID_ANY,wxEmptyString, wxDefaultPosition, wxSize(300,wxDefaultCoord), wxCB_READONLY);
   m_toolbarThreadsCombo->SetPopupMaxHeight(200);
 
   m_toolbarThreadsListPopup = new wxListViewComboPopup();

@@ -83,7 +83,7 @@ public:
 
       subSizer->Add(m_samplingDepthCtrl, 0, wxTOP | wxRIGHT, 5);
 
-      subSizer->Add(new wxStaticText(this, wxID_ANY, "frames ( 0 is unlimited )."), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);   
+      subSizer->Add(new wxStaticText(this, wxID_ANY, "frames ( 0 is unlimited ).*"), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);      
       
       subSizer->Add(new wxStaticText(this, wxID_ANY, "Start sampling after"), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
 
@@ -103,7 +103,7 @@ public:
 
       m_connectToServerCheckBox = new wxCheckBox(this, wxID_ANY, "Connect to Microsoft symbol server for system symbols");
 
-      mainSizer->Add(m_connectToServerCheckBox, 0, wxALL, 5);
+      mainSizer->Add(m_connectToServerCheckBox, 0, wxALL, 5);      
 
       mainSizer->AddSpacer(5);
       mainSizer->Add(new wxStaticText(this, wxID_ANY, _T("Debug info directories:")), 
@@ -118,6 +118,10 @@ public:
         subSizer->Add(new wxButton(this, Rem_Dir_ID, _T("Remove selected directory")), 0, wxRIGHT | wxBOTTOM, 5);
         subSizer->Add(new wxButton(this, Add_Dir_ID, _T("Add new directory")), 0, wxRIGHT | wxBOTTOM, 5);
       }
+
+      mainSizer->AddSpacer(5);
+      mainSizer->Add(new wxStaticText(this, wxID_ANY, "* Use depth of 1 for best accuracy, 0 to gain a good call graph."), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);   
+
       SetSizer(mainSizer);
       mainSizer->Fit(this);
     }
