@@ -70,8 +70,8 @@ public:
       m_bitmap = wxBitmap(wiztest2_xpm);
 
       m_samplingDepthCtrl = new wxSpinCtrl(this, wxID_ANY);
-      m_startSamplingCtrl = new wxSpinCtrl(this, wxID_ANY);
-      m_samplingDurationCtrl = new wxSpinCtrl(this, wxID_ANY);
+      m_startSamplingCtrl = new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 1000);
+      m_samplingDurationCtrl = new wxSpinCtrl(this, wxID_ANY, "", wxDefaultPosition, wxDefaultSize, wxSP_ARROW_KEYS, 0, 1000);
 
       wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 

@@ -37,6 +37,7 @@
 
 #include "StackWalker.h"
 #include <set>
+#include <string>
 
 // If VC7 and later, then use the shipped 'dbghelp.h'-file
 #if _MSC_VER >= 1300
@@ -191,6 +192,7 @@ class StackWalkerInternal
 {
 public:
   std::set<DWORD64> m_unknownAddresses;
+  std::set<std::string> m_alreadyLoadedModules;
   StackWalkerInternal(StackWalker *parent, HANDLE hProcess)
   {
     m_parent = parent;
@@ -495,9 +497,13 @@ private:
     int cnt = 0;
     while (keepGoing)
     {
-      DWORD ret = this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize, moduleCount, cnt+1);
-      if (ret == ERROR_CANCELLED)
-        break;
+      DWORD ret = 0;
+      if (m_alreadyLoadedModules.find(me.szExePath) == m_alreadyLoadedModules.end()) {
+        ret = this->LoadModule(hProcess, me.szExePath, me.szModule, (DWORD64) me.modBaseAddr, me.modBaseSize, moduleCount, cnt+1);
+        m_alreadyLoadedModules.insert(me.szExePath);
+        if (ret == ERROR_CANCELLED)
+          break;
+      }      
       cnt++;
       keepGoing = !!pM32N( hSnap, &me );
     }
@@ -791,8 +797,9 @@ BOOL StackWalker::LoadModules()
     SetLastError(ERROR_DLL_INIT_FAILED);
     return FALSE;
   }
-  if (m_modulesLoaded != FALSE)
-    return TRUE;
+  if (m_modulesLoaded != FALSE) {
+    return this->m_sw->LoadModules(this->m_hProcess, this->m_dwProcessId);    
+  }
 
   // Build the sym-path:
   char *szSymPath = NULL;

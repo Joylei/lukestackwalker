@@ -44,8 +44,7 @@ class wxSplitterEvent;
 class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   ProfilerSettings m_settings;
   ProfilerSettings m_settingsBeforeWizard;
-  wxTextCtrl *m_logCtrl;
-  wxLog *m_logTargetOld;
+  wxTextCtrl *m_logCtrl;    
   MyGrid *m_resultsGrid;
   Edit *m_sourceEdit;
   wxSplitterWindow *m_horzSplitter;
@@ -57,7 +56,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   double m_zoom;
   FunctionSample *m_currentActiveFs;
   wxComboCtrl *m_toolbarThreadsCombo;
-  wxListViewComboPopup *m_toolbarThreadsListPopup;
+  wxListViewComboPopup *m_toolbarThreadsListPopup;  
   
   wxString m_currentFunction;
   wxString m_currentSourceFile;

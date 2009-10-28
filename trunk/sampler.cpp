@@ -17,6 +17,8 @@
 #include <wx/log.h>
 #include <wx/filename.h>
 #include <wx/textctrl.h>
+#include <stdarg.h>
+#include <set>
 
 std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
 int g_allThreadSamples = 0;
@@ -24,6 +26,31 @@ int g_totalModules = 0;
 int g_loadedModules = 0;
 bool g_bNewProfileData = false;
 static wxTextCtrl *s_pLogCtrl;
+
+void LogMessage(bool bError, const char *format, ...) {
+  wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
+  if (bError) {
+    attr.SetTextColour(*wxRED);
+    s_pLogCtrl->SetDefaultStyle(attr);
+  }
+
+  char buffer[10240];
+  va_list args;
+  va_start (args, format);
+  vsnprintf_s (buffer, sizeof(buffer), _TRUNCATE, format, args);
+  perror (buffer);
+  va_end (args);
+
+  wxLogMessage(buffer);
+
+  if (bError) {
+    attr.SetTextColour(*wxBLACK);
+    s_pLogCtrl->SetDefaultStyle(attr);
+  }
+  int pos = s_pLogCtrl->GetScrollRange(wxVERTICAL);
+  s_pLogCtrl->SetScrollPos(wxVERTICAL, pos);
+  s_pLogCtrl->ScrollLines(1);
+}
 
 class MyStackWalker : public StackWalker
 {
@@ -34,31 +61,32 @@ public:
   bool m_bSkipFirstEntry;
   ThreadSampleInfo *m_currThreadContext;
   ProfilerProgressStatus *m_status;
+  std::set<DWORD64> m_complainedAddresses;
 
   MyStackWalker(int options, DWORD dwProcessId, HANDLE hProcess, LPCSTR debugInfoPath, ProfilerProgressStatus *status) : StackWalker(options, debugInfoPath, dwProcessId, hProcess) {
     m_bSkipFirstEntry = false;
     m_status = status;
   }
 
+  void OnDbgHelpErr(LPCSTR szFuncName, DWORD gle, DWORD64 addr)
+  {
+    if (m_complainedAddresses.find(addr) == m_complainedAddresses.end()) {
+      m_complainedAddresses.insert(addr);
+      LogMessage(true, "ERROR: %s, GetLastError: %d (Address: %p)", szFuncName, gle, (LPVOID) addr);    
+    }
+  }
+
+
   bool OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG, int totalModules, int currentModule) {
     CHAR buffer[STACKWALK_MAX_NAMELEN];
     _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
     g_totalModules = totalModules;
-    g_loadedModules = currentModule;
-    wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
-    if (strlen(pdbName)) {
-      attr.SetTextColour(*wxBLACK);
-    } else {
-      attr.SetTextColour(*wxRED);
-    }
-    s_pLogCtrl->SetDefaultStyle(attr);
-    wxLogMessage(buffer);
-    attr.SetTextColour(*wxBLACK);
-    s_pLogCtrl->SetDefaultStyle(attr);
+    g_loadedModules = currentModule;    
+    LogMessage(!strlen(pdbName), buffer);    
     return !m_status->bFinishedSampling;
   }
 
-  virtual void OnOutput(LPCSTR szText) { wxLogMessage(szText); }
+  virtual void OnOutput(LPCSTR szText) { LogMessage(false, szText); }
 
   void OnCallstackEntry(CallstackEntryType eType, CallstackEntry &entry) {  
     if ( (eType == lastEntry) || (entry.offset == 0) ) {
@@ -242,15 +270,19 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
         DWORD exitCode = 0;
         if (GetExitCodeProcess(hProcess, &exitCode)) {
           if (exitCode != STILL_ACTIVE)  {
-            wxLogMessage( "Target program exited with code 0x%08x.", exitCode);
+            LogMessage(false, "Target program exited with code 0x%08x.", exitCode);
           }
         } else {
-          wxLogMessage( "CreateToolhelp32Snapshot failed with error code 0x%08x.", GetLastError());
+          LogMessage(false, "CreateToolhelp32Snapshot failed with error code 0x%08x.", GetLastError());
         }
         CloseHandle(hProcess);
         return 0;
-      }
+      }    
     }
+    if ((nLoops % 250) == 249) { // check for new dlls every 1000 samples
+      sw.LoadModules();
+    }
+
 
     THREADENTRY32 te;  
     memset(&te, 0, sizeof(te));
@@ -294,7 +326,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
       DWORD exitCode = 0;
       if (GetExitCodeProcess(hProcess, &exitCode)) {
         if (exitCode != STILL_ACTIVE)  {
-          wxLogMessage( "Target program exited with code 0x%08x.", exitCode);
+          LogMessage(false, "Target program exited with code 0x%08x.", exitCode);
           bExited = true;
         }
       } else {
@@ -321,6 +353,11 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
       break;
     if (bExited)
       break;
+
+    if ((nLoops > 100) && (g_allThreadSamples == 0)) {
+      LogMessage(true,  "Could not get any samples from the process.");
+      break;
+    }
 
   } while ((time(0) < end) || (duration == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL));
   time_t sampleend = time(0);
@@ -545,7 +582,7 @@ PROCESS_INFORMATION LaunchTarget(const char *exe, const char *cmdline, const cha
     while (strlen(errBuffer) && (errBuffer[strlen(errBuffer) - 1] == '\n' || errBuffer[strlen(errBuffer) - 1] == '\r')) {
       errBuffer[strlen(errBuffer) - 1] = 0;
     }
-    wxLogMessage( "CreateProcess failed %d: [%s].", GetLastError(), errBuffer );
+    LogMessage(true,  "CreateProcess failed %d: [%s].", GetLastError(), errBuffer );
     return pi;
   }
 
@@ -591,9 +628,10 @@ char *MergeEnvironment(ProfilerSettings *settings) {
   return ret;
 }
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logCtrl) {  
-  
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logCtrl) {      
   s_pLogCtrl = logCtrl;
+  s_pLogCtrl->Clear();
+
   g_threadSamples.clear();
   g_allThreadSamples = 0;
   g_totalModules = 0;
@@ -603,7 +641,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   memset(&pi, 0, sizeof(pi));
 
   if (!settings->m_bAttachToProcess) {
-    wxLogMessage("Launching executable %s.", settings->m_executable.c_str());
+    LogMessage(false, "Launching executable %s.", settings->m_executable.c_str());
 
     char *env = MergeEnvironment(settings);
 
@@ -623,7 +661,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   if (!settings->m_bAttachToProcess) {
     WaitForInputIdle(pi.hProcess, 500);
     if (WaitForSingleObject(pi.hProcess, 500) != WAIT_TIMEOUT) {
-      wxLogMessage("The executable %s exited already, maybe it's missing a DLL?.", settings->m_executable.c_str());
+      LogMessage(true, "The executable %s exited already, maybe it's missing a DLL?.", settings->m_executable.c_str());
       CloseHandle( pi.hProcess );
       CloseHandle( pi.hThread );
       return false;
@@ -659,7 +697,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
     CloseHandle( pi.hProcess );
     CloseHandle( pi.hThread );
   }
-  wxLogMessage("Sorting profile data.");
+  LogMessage(false, "Sorting profile data.");
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {     
     SortFunctionSamples(&it->second);
@@ -668,9 +706,13 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
   ProduceDisplayData();
-  wxLogMessage("Done; %d samples collected at %0.1lf samples/second.", g_allThreadSamples, sampleSpeed);
+  LogMessage(false, "Done; %d samples collected at %0.1lf samples/second.", g_allThreadSamples, sampleSpeed);
   status->bFinishedSampling = true;
   g_bNewProfileData = true;
+  int w,h;
+  s_pLogCtrl->GetSize(&w, &h);
+  s_pLogCtrl->SetSize(w, h-1);
+  s_pLogCtrl->SetSize(w, h);
   return true;
 }
 
@@ -836,7 +878,7 @@ bool LoadSampleData(const wxString &fn) {
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
 
-  wxLogMessage("Sorting profile data.");
+  LogMessage(false, "Sorting profile data.");
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {     
     SortFunctionSamples(&it->second);

@@ -122,7 +122,9 @@ void ProfileProgressDialog::OnPauseContinueButton(wxCommandEvent& WXUNUSED(event
 
 
 void ProfileProgressDialog::EndProfiling() {
-  Wait();
+  if (IsRunning()) {
+    Wait();
+  }
   m_timer.Stop();
   EndModal(0);
 }
@@ -209,7 +211,7 @@ bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *
     ProcessEnumDialog dlg(appMainWindow);
     int ret = dlg.ShowModal();
     if (ret == wxID_CANCEL) {
-      return false;
+      return true;
     }
     processid = dlg.m_processId;
   }
