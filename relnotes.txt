@@ -1,3 +1,12 @@
+Release 0.9.2, Oct 29th 2009
+- Bug fix: stop sampling with an error message if no threads can be sampled
+- Bug fix: complain only once for each callstack address that cannot be resolved to a function name / source line.
+  Before this could flood the log view to the point where the program would hang.
+- Check if the process has loaded new modules during sampling and load debug info for the new modules
+- Log window enchancements: log scrolls when new text is written, more errors in red
+- Bug fix: spin controls in project settings wizard now allow typing into them (fixed by updating wxWidgets to 2.8.10)
+- Updated debuggin tools for windows redistributables to currently latest available version 6.11.1.404 
+
 Release 0.9.1, Oct 20th 2009
 - Bug fix: fixed a crash when displaying call graph with very long (STL-style) function names 
 - More sensible default project settings
@@ -26,7 +35,6 @@ Release 0.8.7, Jan 27 2009
 - Display(+Save/Load) of CPU time used by each thread in the thread 
 
 Release 0.8.6, Jan 11 2009
-
 - PDF user manual included
 - Progress dialog shows loading of debug info
 - Prompting for saving of profile data before closing program/profiling again/loading a profile from file

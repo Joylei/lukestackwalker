@@ -78,7 +78,7 @@ public:
     double cpuTime = 0;
     while (item >= 0) {
       wxString s2 = wxListView::GetItemText(item);
-      int threadId = 0;
+      unsigned int threadId = 0;
       s2 = s2.BeforeFirst(' ');
       sscanf(s2, " 0x%x", &threadId);
       for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin(); it != g_threadSamples.end(); it++) {
@@ -432,7 +432,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 
   m_logCtrl = new wxTextCtrl(m_bottomNotebook, wxID_ANY, wxEmptyString,
     wxDefaultPosition, wxDefaultSize,
-    wxTE_RICH | wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE);
+    wxTE_RICH | wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE | wxHSCROLL);
 
   m_bottomNotebook->AddPage( m_logCtrl, "Log", false);
 
@@ -445,9 +445,6 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_horzSplitter = new wxSplitterWindow(m_vertSplitter, HorizontalSplitter, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER);
 
   m_sourceEdit = new Edit(m_horzSplitter);
-
-  m_logTargetOld = wxLog::SetActiveTarget( new wxLogTextCtrl(m_logCtrl) );
-  wxLog::SetTimestamp(0);
 
   m_resultsGrid = new MyGrid( m_horzSplitter,
     Results_Grid,
@@ -484,7 +481,7 @@ StackWalkerMainWnd::~StackWalkerMainWnd() {
     wxConfigBase::Get()->Write(_T("/MainFrame/h"), (long) h);
   }
   m_fileHistory.Save(*wxConfigBase::Get());
-  delete wxLog::SetActiveTarget(m_logTargetOld);
+  
 }
 
 
@@ -1030,10 +1027,17 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
     wxFileName fn(m_settings.m_executable);
     m_settings.m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
   }  
+  
+  wxLog *logTargetOld = wxLog::SetActiveTarget( new wxLogTextCtrl(m_logCtrl)  );
+  wxLog::SetTimestamp(0);
+  wxLog::SetLogLevel(1000);
 
   if (!SampleProcessWithDialogProgress(this, &m_settings, m_logCtrl)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
   }
+
+  delete wxLog::SetActiveTarget( logTargetOld  );
+  wxLog::SetLogLevel(0);
 
   ProfileDataChanged(); 
 }
