@@ -311,7 +311,10 @@ bool Edit::LoadFile (wxString filename, wxString openFrom) {
   if (openFrom.length()) {
     filename = openFrom;
   }
-  wxFile file (filename);
+  wxFile file;
+  if (wxFile::Exists(filename)) {
+    file.Open(filename);
+  }
   if (!file.IsOpened()) {
     Thaw();
     if (!m_filename.length()) {      
