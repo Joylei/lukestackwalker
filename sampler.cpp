@@ -19,15 +19,18 @@
 #include <wx/textctrl.h>
 #include <stdarg.h>
 #include <set>
+#include <vector>
 
 std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
 int g_allThreadSamples = 0;
 int g_totalModules = 0;
 int g_loadedModules = 0;
 bool g_bNewProfileData = false;
-static wxTextCtrl *s_pLogCtrl;
+static wxTextCtrl *s_pLogCtrl = 0;
 
 void LogMessage(bool bError, const char *format, ...) {
+  if (!s_pLogCtrl)
+    return;
   wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
   if (bError) {
     attr.SetTextColour(*wxRED);
@@ -262,9 +265,16 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
   bool bExited = false;
   time_t samplestart = time(0);
   int nLoops = 0;
+  std::vector<THREADENTRY32> threads;
   do {
-    if ((nLoops++ % 10 == 0) || (hSnap == INVALID_HANDLE_VALUE)) { // check for new threads once every 10 samples
-      CloseHandle(hSnap);
+
+    if ((nLoops % 250) == 249) { // check for new dlls every 1000 samples
+      sw.LoadModules();
+    }
+
+
+    if ((nLoops++ % 20 == 0) || (hSnap == INVALID_HANDLE_VALUE)) { // check for new threads once every 20 samples
+      CloseHandle(hSnap);      
       hSnap = CreateToolhelp32Snapshot(TH32CS_SNAPTHREAD, dwProcessId);
       if (hSnap == INVALID_HANDLE_VALUE) {
         DWORD exitCode = 0;
@@ -277,26 +287,27 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
         }
         CloseHandle(hProcess);
         return 0;
-      }    
+      }
+      threads.clear();
+      THREADENTRY32 te;  
+      memset(&te, 0, sizeof(te));
+      te.dwSize = sizeof(te);
+      if (Thread32First(hSnap, &te) == FALSE) {
+        break;
+      }   
+      do {
+        if (te.th32OwnerProcessID == dwProcessId)
+          threads.push_back(te);
+      } while(Thread32Next(hSnap, &te) != FALSE);    
     }
-    if ((nLoops % 250) == 249) { // check for new dlls every 1000 samples
-      sw.LoadModules();
-    }
+    
+    
 
-
-    THREADENTRY32 te;  
-    memset(&te, 0, sizeof(te));
-    te.dwSize = sizeof(te);
-    if (Thread32First(hSnap, &te) == FALSE) {
-      break;
-    }   
-    do {
-      if (te.th32OwnerProcessID != dwProcessId)
-        continue;
-      HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, te.th32ThreadID);
+    for (unsigned int i = 0; i < threads.size(); i++) {
+      HANDLE hThread = OpenThread(THREAD_ALL_ACCESS, FALSE, threads[i].th32ThreadID);
       if (hThread == NULL)
         continue;
-      sw.m_currThreadContext = &g_threadSamples[te.th32ThreadID];
+      sw.m_currThreadContext = &g_threadSamples[threads[i].th32ThreadID];
       FILETIME creationTime, endTime, kernelTime, userTime;
       if (GetThreadTimes(hThread, &creationTime, &endTime, &kernelTime, &userTime)) {
         ULARGE_INTEGER tmp;
@@ -334,7 +345,8 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
       }
       if (bExited)
         break;
-    } while(Thread32Next(hSnap, &te) != FALSE);    
+    }
+    
     Sleep(1);
     if (!end) { // 1st sample loads symbols; set end time after that...
       end = time(0) + duration;
@@ -354,7 +366,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
     if (bExited)
       break;
 
-    if ((nLoops > 100) && (g_allThreadSamples == 0)) {
+    if ((nLoops > 200) && (g_allThreadSamples == 0)) {
       LogMessage(true,  "Could not get any samples from the process.");
       break;
     }
@@ -878,7 +890,7 @@ bool LoadSampleData(const wxString &fn) {
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
 
-  LogMessage(false, "Sorting profile data.");
+  wxLogMessage("Sorting profile data.");
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {     
     SortFunctionSamples(&it->second);

@@ -31,6 +31,7 @@
 #include <wx/combo.h>
 #include <wx/listctrl.h>
 #include <wx/tooltip.h>
+#include <wx/file.h>
 
 
 class wxListViewComboPopup : public wxListView, public wxComboPopup {
@@ -219,9 +220,10 @@ bool MyApp::OnInit()
       frame->LoadSettings(argv[1]);
     }
     if (!ext.CmpNoCase("lsd")) {
-      frame->LoadProfileData(argv[1]);
+      frame->LoadProfileData(argv[1]);      
     }
   }
+  frame->UpdateTitleBar();
 
   // we're done
   return true;
@@ -285,6 +287,13 @@ END_EVENT_TABLE()
 
 void StackWalkerMainWnd::OnMRUFile(wxCommandEvent& ev) {
   wxFileName fn(m_fileHistory.GetHistoryFile(ev.GetId() - wxID_FILE1));
+  if (!fn.FileExists()) {
+    wxString str = "The file [";
+    str += m_fileHistory.GetHistoryFile(ev.GetId() - wxID_FILE1);
+    str += "] could not be opened.";
+    wxMessageBox(str, wxT("Error"), wxOK | wxCENTRE | wxICON_HAND);
+    return;
+  }
   wxString ext = fn.GetExt();
   if (!ext.CmpNoCase("lsp")) {
     LoadSettings(fn.GetFullPath());
@@ -315,6 +324,10 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
          wxDefaultPosition, wxSize(600, 400))  // small frame
 {
   wxMenu *menuFile = new wxMenu;
+
+  wxLog::SetTimestamp(0);
+  wxLog::SetLogLevel(1000);
+
 
   menuFile->Append(File_Save_Settings, _T("Save Project Settings...\tCtrl-S"));
   menuFile->Append(File_Save_Settings_As, _T("Save Project Settings As..."));
@@ -468,6 +481,8 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_resultsGrid->SetRowLabelSize(0);
   m_fileHistory.Load(*wxConfigBase::Get());
   m_gridWidth = 0;
+
+  m_logTargetOld = wxLog::SetActiveTarget( new wxLogTextCtrl(m_logCtrl)  );
 }
 
 StackWalkerMainWnd::~StackWalkerMainWnd() {
@@ -481,6 +496,9 @@ StackWalkerMainWnd::~StackWalkerMainWnd() {
     wxConfigBase::Get()->Write(_T("/MainFrame/h"), (long) h);
   }
   m_fileHistory.Save(*wxConfigBase::Get());
+
+  delete wxLog::SetActiveTarget( m_logTargetOld  );
+  wxLog::SetLogLevel(0);
   
 }
 
@@ -584,6 +602,11 @@ void StackWalkerMainWnd::UpdateTitleBar() {
     }
   }
 
+  if (m_currentDataFile.length()) {
+    label += " - ";
+    label += StripPath(m_currentDataFile);
+  }
+
   if (m_currentSourceFile.length()) {
     label += " - ";
     label += StripPath(m_currentSourceFile);
@@ -626,6 +649,13 @@ void StackWalkerMainWnd::OnFileSaveSettingsAs(wxCommandEvent& WXUNUSED(event)) {
 }
 
 void StackWalkerMainWnd::LoadSettings(const char *fileName) {
+  if (ComplainAboutNonSavedProfile()) {
+    return;
+  }
+  g_threadSamples.clear();
+  g_displayedSampleInfo = 0;
+  m_currentDataFile = "";
+
   if (!m_settings.Load(fileName)) {
     wxMessageBox(wxT("Loading the settings failed."), wxT("Notification"));
     m_settings.m_settingsFileName = "";
@@ -633,7 +663,8 @@ void StackWalkerMainWnd::LoadSettings(const char *fileName) {
     m_settings.m_settingsFileName = fileName;  
     m_fileHistory.AddFileToHistory(fileName);
   }
-  ClearContext();  
+  ClearContext();
+  ProfileDataChanged();
   UpdateTitleBar();
 }
 
@@ -669,12 +700,16 @@ void StackWalkerMainWnd::OnClickCaller(Caller *caller) {
   if (m_sourceEdit->GetFilename() != caller->m_functionSample->m_fileName.c_str()) {
     m_sourceEdit->ClearAll();
     wxString fn = caller->m_functionSample->m_fileName.c_str();
-    if (m_settings.m_sourceFileSubstitutions.find(fn) != m_settings.m_sourceFileSubstitutions.end()) {
-      m_sourceEdit->LoadFile(fn, m_settings.m_sourceFileSubstitutions.find(fn)->second);
+    if (fn.IsEmpty()) {
+      m_currentSourceFile = "";
     } else {
-      m_sourceEdit->LoadFile(fn);
+      if (m_settings.m_sourceFileSubstitutions.find(fn) != m_settings.m_sourceFileSubstitutions.end()) {
+        m_sourceEdit->LoadFile(fn, m_settings.m_sourceFileSubstitutions.find(fn)->second);
+      } else {
+        m_sourceEdit->LoadFile(fn);
+      }
+      m_currentSourceFile = m_sourceEdit->GetFilename();
     }
-    m_currentSourceFile = m_sourceEdit->GetFilename();
   }
 
   int line = caller->m_lineNumber;
@@ -997,11 +1032,14 @@ void StackWalkerMainWnd::ProfileDataChanged() {
   }
   
   for (int i = 1; i < m_toolbarThreadsListPopup->GetItemCount(); i++) {
-    m_toolbarThreadsListPopup->Select(0, false);
+    m_toolbarThreadsListPopup->Select(i, false);
   }
-  m_toolbarThreadsListPopup->Select(0, true);
-  
-  m_toolbarThreadsCombo->SetText(m_toolbarThreadsListPopup->GetItemText(0));
+  if (m_toolbarThreadsListPopup->GetItemCount()) {
+    m_toolbarThreadsListPopup->Select(0, true);  
+    m_toolbarThreadsCombo->SetText(m_toolbarThreadsListPopup->GetItemText(0));
+  } else {
+    m_toolbarThreadsCombo->SetText("");
+  }
   ThreadSelectionChanged();
   RefreshGridView();
 }
@@ -1028,16 +1066,11 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
     m_settings.m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
   }  
   
-  wxLog *logTargetOld = wxLog::SetActiveTarget( new wxLogTextCtrl(m_logCtrl)  );
-  wxLog::SetTimestamp(0);
-  wxLog::SetLogLevel(1000);
+  
 
   if (!SampleProcessWithDialogProgress(this, &m_settings, m_logCtrl)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
-  }
-
-  delete wxLog::SetActiveTarget( logTargetOld  );
-  wxLog::SetLogLevel(0);
+  }  
 
   ProfileDataChanged(); 
 }
@@ -1140,7 +1173,9 @@ void StackWalkerMainWnd::OnFileSaveProfile(wxCommandEvent&) {
   if (!SaveSampleData(fdlg.GetPath().c_str())) {
     wxMessageBox(wxT("Saving the profile data failed."), wxT("Notification"));
   } else {
-    m_fileHistory.AddFileToHistory(fdlg.GetPath());    
+    m_fileHistory.AddFileToHistory(fdlg.GetPath());
+    m_currentDataFile = fdlg.GetPath();
+    UpdateTitleBar();
   }
 }
 
@@ -1152,6 +1187,7 @@ void StackWalkerMainWnd::LoadProfileData(const char *fileName) {
     g_threadSamples.clear();
   } else {
     m_fileHistory.AddFileToHistory(fileName); 
+    m_currentDataFile = fileName;
   }
   ProfileDataChanged();
 }
@@ -1169,6 +1205,7 @@ void StackWalkerMainWnd::OnFileLoadProfile(wxCommandEvent&) {
     return;
 
   LoadProfileData(fdlg.GetPath().c_str());
+  UpdateTitleBar();
 }
 
 void StackWalkerMainWnd::OnHorizontalSplitterChanging(wxSplitterEvent& event) {

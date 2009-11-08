@@ -57,13 +57,14 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   FunctionSample *m_currentActiveFs;
   wxComboCtrl *m_toolbarThreadsCombo;
   wxListViewComboPopup *m_toolbarThreadsListPopup;  
+  wxLog *m_logTargetOld;
   
   wxString m_currentFunction;
   wxString m_currentSourceFile;
+  wxString m_currentDataFile;
   wxFileHistory m_fileHistory;
   int m_gridWidth;
 
-  void UpdateTitleBar();
   void ClearContext();
   int m_verticalSplitterRestorePosition;
   int m_horizontalSplitterRestorePosition;
@@ -76,6 +77,7 @@ public:
     // ctor(s)
     StackWalkerMainWnd(const wxString& title);
     ~StackWalkerMainWnd();
+    void UpdateTitleBar();
 
     // event handlers (these functions should _not_ be virtual)
     void OnQuit(wxCommandEvent& event);
