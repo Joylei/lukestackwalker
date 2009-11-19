@@ -372,13 +372,14 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   CreateStatusBar();
 
 
-  enum TbBitMaps {OPEN, SAVE, SETTINGS, RUN, ZOOM_IN, ZOOM_OUT, NBITMAPS};
+  enum TbBitMaps {OPEN, SAVE_SETTINGS, SAVE_PROFILE, SETTINGS, RUN, ZOOM_IN, ZOOM_OUT, NBITMAPS};
   static wxBitmap toolBarBitmaps[NBITMAPS];
 
 #define INIT_TOOL_BMP(bmp) toolBarBitmaps[bmp] = wxBitmap(#bmp)
 
   INIT_TOOL_BMP(OPEN);
-  INIT_TOOL_BMP(SAVE);
+  INIT_TOOL_BMP(SAVE_SETTINGS);
+  INIT_TOOL_BMP(SAVE_PROFILE);
   INIT_TOOL_BMP(SETTINGS);
   INIT_TOOL_BMP(RUN);
   INIT_TOOL_BMP(ZOOM_IN);
@@ -393,8 +394,13 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
     "Load profiler project settings");
 
   m_toolbar->AddTool(File_Save_Settings, "Save Settings",
-    toolBarBitmaps[SAVE], wxNullBitmap, wxITEM_NORMAL,
+    toolBarBitmaps[SAVE_SETTINGS], wxNullBitmap, wxITEM_NORMAL,
     "Save profiler project settings");
+
+  m_toolbar->AddTool(File_Save_Profile, "Save Profile Data",
+    toolBarBitmaps[SAVE_PROFILE], wxNullBitmap, wxITEM_NORMAL,
+    "Save profile data");
+
 
   m_toolbar->AddTool(Wizard_RunModal, "Project Setup",
     toolBarBitmaps[SETTINGS], wxNullBitmap, wxITEM_NORMAL,
