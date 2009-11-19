@@ -45,7 +45,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalOptions="/EHsc "
+				AdditionalOptions="/EHsc &#x0D;&#x0A;"
 				Optimization="2"
 				InlineFunctionExpansion="1"
 				AdditionalIncludeDirectories="graphviz\include\graphviz;&quot;C:\wxWidgets-2.8.10\lib\vc_lib\mswd&quot;;&quot;C:\wxWidgets-2.8.10\include&quot;;&quot;C:\wxWidgets-2.8.10\contrib\include\&quot;"
@@ -321,6 +321,14 @@
 				>
 			</File>
 			<File
+				RelativePath=".\bitmaps\save-profile.bmp"
+				>
+			</File>
+			<File
+				RelativePath=".\bitmaps\save-settings.bmp"
+				>
+			</File>
+			<File
 				RelativePath=".\bitmaps\save.bmp"
 				>
 			</File>
@@ -391,6 +399,10 @@
 		</File>
 		<File
 			RelativePath=".\StackWalker.h"
+			>
+		</File>
+		<File
+			RelativePath=".\targetsxs.h"
 			>
 		</File>
 		<File

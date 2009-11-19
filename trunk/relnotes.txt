@@ -1,3 +1,8 @@
+Release 0.9.4, Nov 19th 2009
+- Bug fix: DLL hell had struck me again, dependency to a version  8.0.50727.4053 of the vc runtime had creeped in to the program via windows update.
+  fixed according to : http://tedwvc.wordpress.com/2009/08/10/avoiding-problems-with-vc2005-sp1-security-update-kb971090/
+- Separate tool bar buttons for saving profile data and project settings  
+
 Release 0.9.3, Nov 8th 2009
 - Doctor, heal yourself: profiled luke stackwalker -> improved sampling speed by up to 3x
 - Bug fix: fixed a logging-related crash when loading a sample data file and have not run a profile before
