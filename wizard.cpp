@@ -49,7 +49,8 @@ enum {
     Add_Var_ID,
     Rem_Var_ID,
     Env_Vars_ID,
-    Attach_to_Process_Chk_ID
+    Attach_to_Process_Chk_ID,
+    Stop_Sampling_Outside_Modules_ID
 };
 
 
@@ -61,6 +62,7 @@ class ProfilerSettingsSamplingPage : public wxWizardPageSimple {
   wxSpinCtrl *m_samplingDurationCtrl;
   wxCheckBox *m_manualSamplingCheckBox;
   wxCheckBox *m_connectToServerCheckBox;
+  wxCheckBox *m_stopAtPCOutsideModulesCheckBox;
   wxListBox *m_debugPathsLb;
   DECLARE_EVENT_TABLE()
 
@@ -83,7 +85,7 @@ public:
 
       subSizer->Add(m_samplingDepthCtrl, 0, wxTOP | wxRIGHT, 5);
 
-      subSizer->Add(new wxStaticText(this, wxID_ANY, "frames ( 0 is unlimited ).*"), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);      
+      subSizer->Add(new wxStaticText(this, wxID_ANY, "frames ( 0 is unlimited ).*"), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);            
       
       subSizer->Add(new wxStaticText(this, wxID_ANY, "Start sampling after"), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
 
@@ -96,6 +98,9 @@ public:
       subSizer->Add(m_samplingDurationCtrl, 0, wxTOP | wxRIGHT, 5);
 
       subSizer->Add(new wxStaticText(this, wxID_ANY, "seconds."), 0, wxTOP | wxRIGHT | wxALIGN_CENTER_VERTICAL, 5);
+
+      m_stopAtPCOutsideModulesCheckBox = new wxCheckBox(this, Stop_Sampling_Outside_Modules_ID, "Abort stack walk when address is outside known modules");
+      mainSizer->Add(m_stopAtPCOutsideModulesCheckBox, 0, wxALL, 5);
       
       m_manualSamplingCheckBox = new wxCheckBox(this, Manual_Sampling_Chk_ID, "Start and stop sampling manually");
                 
@@ -137,6 +142,7 @@ public:
         m_settings->m_samplingTime = m_samplingDurationCtrl->GetValue();
       }
       m_settings->m_bConnectToSymServer = m_connectToServerCheckBox->IsChecked();
+      m_settings->m_bStopAtPCOutsideModules = m_stopAtPCOutsideModulesCheckBox->IsChecked();
 
       m_settings->m_debugInfoPaths.clear();      
       for (unsigned int i = 0; i < m_debugPathsLb->GetCount(); i++) {
@@ -161,6 +167,7 @@ public:
       m_startSamplingCtrl->Enable(!m_manualSamplingCheckBox->IsChecked());
       m_samplingDurationCtrl->Enable(!m_manualSamplingCheckBox->IsChecked());
       m_connectToServerCheckBox->SetValue(m_settings->m_bConnectToSymServer);
+      m_stopAtPCOutsideModulesCheckBox->SetValue(m_settings->m_bStopAtPCOutsideModules);
 
       m_debugPathsLb->Clear();
       for (std::list<wxString>::iterator it = m_settings->m_debugInfoPaths.begin();

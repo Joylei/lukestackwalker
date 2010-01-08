@@ -1,3 +1,11 @@
+Release 0.9.5, Jan 9th 2010
+- Bug fix: By default, abort call stack traversing if PC is not in any known module. Not doing
+  this used to get a lot of bogus call stack data when the call stack could not be walked properly.
+  Getting a lot of bogus addresses could make the call graph view to take a very long time to draw
+  and thus to make the program to appear to have hung.  
+- Bug fix: The source window would sometimes stay blank and not load the correct source file.
+- Bug fix: Don't allow moving the selection in the profile view below the bottom of the grid view with arrow keys
+
 Release 0.9.4, Nov 19th 2009
 - Bug fix: DLL hell had struck me again, dependency to a version  8.0.50727.4053 of the vc runtime had creeped in to the program via windows update.
   fixed according to : http://tedwvc.wordpress.com/2009/08/10/avoiding-problems-with-vc2005-sp1-security-update-kb971090/

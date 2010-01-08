@@ -248,9 +248,11 @@ public:
     if (evt.GetKeyCode() == WXK_DOWN) {
       wxArrayInt rows = GetSelectedRows();
       if (rows.Count()) {
-        SelectRow(rows.Item(0) + 1);
-        SetGridCursor(rows.Item(0) + 1, 0);
-        MakeCellVisible(rows.Item(0) + 1, 0);
+        if (rows.Item(0) < GetNumberRows() - 1) {
+          SelectRow(rows.Item(0) + 1);
+          SetGridCursor(rows.Item(0) + 1, 0);
+          MakeCellVisible(rows.Item(0) + 1, 0);
+        }
       } else {
         SelectRow(0);
         SetGridCursor(0, 0);
@@ -557,7 +559,7 @@ void StackWalkerMainWnd::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 
   char buf[2048];
   sprintf(buf,
-    _T("Luke StackWalker version %d.%d.%d - a win32 profiler (c) 2008-2009 Sami Sallinen, licensed under the BSD license\n\n\n")
+    _T("Luke StackWalker version %d.%d.%d - a win32 profiler (c) 2008-2010 Sami Sallinen, licensed under the BSD license\n\n\n")
     _T("Included third party software:\n\n")
     _T("Walking the callstack (http://www.codeproject.com/KB/threads/StackWalker.aspx) - source code (c) 2005-2007 Jochen Kalmbach,\nlicensed under the BSD license\n\n")
     _T("Graphviz library (c) 1994-2004 AT&T Corp, licensed under the Common Public License\n\n")
@@ -705,6 +707,7 @@ void StackWalkerMainWnd::OnClickCaller(Caller *caller) {
   m_sourceEdit->Freeze();
   if (m_sourceEdit->GetFilename() != caller->m_functionSample->m_fileName.c_str()) {
     m_sourceEdit->ClearAll();
+    m_sourceEdit->SetFilename("");
     wxString fn = caller->m_functionSample->m_fileName.c_str();
     if (fn.IsEmpty()) {
       m_currentSourceFile = "";
@@ -760,7 +763,7 @@ void StackWalkerMainWnd::OnGridSelect(wxGridEvent &ev) {
     it != g_displayedSampleInfo->m_sortedFunctionSamples.end(); ++it) {
       if (r == row) {        
         m_currentActiveFs = (*it);
-        m_callstackView->ShowCallstackToFunction((*it)->m_functionName.c_str());
+        m_callstackView->ShowCallstackToFunction((*it)->m_functionName.c_str(), m_settings.m_bStopAtPCOutsideModules);
         if (m_currentActiveFs->m_callgraph.size()) {
           OnClickCaller(&(*m_currentActiveFs->m_callgraph.begin()));
         }
@@ -788,7 +791,7 @@ void StackWalkerMainWnd::OnGridLabelLeftClick(wxGridEvent &ev) {
     it != g_displayedSampleInfo->m_sortedFunctionSamples.end(); ++it) {
       if (r == row) {        
         m_currentActiveFs = (*it);
-        m_callstackView->ShowCallstackToFunction((*it)->m_functionName.c_str());
+        m_callstackView->ShowCallstackToFunction((*it)->m_functionName.c_str(), m_settings.m_bStopAtPCOutsideModules);
         if (m_currentActiveFs->m_callgraph.size()) {
           OnClickCaller(&(*m_currentActiveFs->m_callgraph.begin()));
         }
@@ -905,10 +908,11 @@ double ProfilerGridCellRenderer::m_maxValue = 0;
 void StackWalkerMainWnd::ClearContext() {
   m_sourceEdit->SetReadOnly(false);
   m_sourceEdit->ClearAll();
+  m_sourceEdit->SetFilename("");
   m_sourceEdit->SetReadOnly(true);
   m_resultsGrid->SetTable(0);
   m_currentActiveFs = 0;
-  m_callstackView->ShowCallstackToFunction("");
+  m_callstackView->ShowCallstackToFunction("", true);
   m_currentFunction = "";
   m_currentSourceFile = "";
   UpdateTitleBar();

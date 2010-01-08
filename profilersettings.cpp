@@ -47,6 +47,8 @@ bool ProfilerSettings::SaveAs(std::string fname) {
   }
   fprintf(f, "attach to process=%d\n", m_bAttachToProcess);
 
+  fprintf(f, "abort stack walk if address outside known modules=%d\n", m_bStopAtPCOutsideModules);
+
   m_bChanged = false;
   return (fclose(f) == 0);
 }
@@ -149,6 +151,13 @@ bool ProfilerSettings::Load(std::string fname) {
     m_bAttachToProcess = false;
   }
 
+  if (fileVer >= 8) {
+    int stop = 1;
+    fscanf(f, "abort stack walk if address outside known modules=%d\n", &stop);
+    m_bStopAtPCOutsideModules = !!stop;
+  } else {
+    m_bStopAtPCOutsideModules = true;
+  }
   
 #undef ERR
   fclose(f);

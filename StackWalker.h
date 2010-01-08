@@ -90,6 +90,8 @@ public:
     LPVOID pUserData = NULL  // optional to identify some data in the 'readMemoryFunction'-callback    
     );
 
+  void SetAbortAtPCOutsideKnownModules(bool bAbort) {m_bAbortWhenPCOutsideKnownModules = bAbort;}
+
 #if _MSC_VER >= 1300
 // due to some reasons, the "STACKWALK_MAX_NAMELEN" must be declared as "public" 
 // in older compilers in order to use it... starting with VC7 we can declare it as "protected"
@@ -129,6 +131,7 @@ protected:
   DWORD m_dwProcessId;
   BOOL m_modulesLoaded;
   LPSTR m_szSymPath;
+  BOOL m_bAbortWhenPCOutsideKnownModules;
 
   int m_options;
 

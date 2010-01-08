@@ -57,8 +57,7 @@ CallStackView::~CallStackView() {
 }
 
 
-
-void CallStackView::DoGraph(FunctionSample *fs) {
+void CallStackView::DoGraph(FunctionSample *fs, bool bSkipPCInUnknownModules) {
   if (m_graph) {
     gvFreeLayout(m_gvc, m_graph);
     agclose(m_graph);
@@ -69,6 +68,8 @@ void CallStackView::DoGraph(FunctionSample *fs) {
 
   for (std::list<Caller>::iterator nodeit = fs->m_callgraph.begin(); 
     nodeit != fs->m_callgraph.end(); ++nodeit) {
+      if (bSkipPCInUnknownModules && !nodeit->m_functionSample->m_moduleName.length())
+        continue;
       char name[1024];
       if (nodeit == fs->m_callgraph.begin()) {
         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\nsamples:%d", m_pSettings->DoAbbreviations(fs->m_functionName).c_str(), fs->m_sampleCount);
@@ -81,28 +82,29 @@ void CallStackView::DoGraph(FunctionSample *fs) {
          _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s.%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
                   fn.GetName().c_str(), fn.GetExt().c_str(), nodeit->m_lineNumber, nodeit->m_sampleCount);
         }
-      }
-      nodeit->m_graphNode = agnode(m_graph, name);      
+      }      
+      nodeit->m_graphNode = agnode(m_graph, name);
       agsafeset(nodeit->m_graphNode, "shape", "box", "");      
   }
   for (std::list<Caller>::iterator nodeit = fs->m_callgraph.begin(); 
     nodeit != fs->m_callgraph.end(); ++nodeit) {
+      if (bSkipPCInUnknownModules && !nodeit->m_functionSample->m_moduleName.length())
+        continue;
       for (std::list<Callee>::iterator edgeit = nodeit->m_callees.begin();
         edgeit != nodeit->m_callees.end(); ++edgeit) {
-          if (edgeit->m_target->m_graphNode)
+          if (edgeit->m_target->m_graphNode) {
             edgeit->m_graphEdge = agedge(m_graph, nodeit->m_graphNode, edgeit->m_target->m_graphNode);
+          }
       }
-  }            
+  }
 
   /* Use the directed graph layout engine */
   gvLayout(m_gvc, m_graph, "dot");
 
-  gvRender(m_gvc, m_graph, "dot", 0);
-  //gvRenderFilename (m_gvc, m_graph, "png", "hepo.png");
-
+  gvRender(m_gvc, m_graph, "dot", 0);  
 }
 
-void CallStackView::ShowCallstackToFunction(const char *funcName) {
+void CallStackView::ShowCallstackToFunction(const char *funcName, bool bSkipPCInUnknownModules) {
   m_funcName = funcName;
   m_fs = 0;
 
@@ -110,7 +112,7 @@ void CallStackView::ShowCallstackToFunction(const char *funcName) {
     std::map<std::string, FunctionSample>::iterator fsit = g_displayedSampleInfo->m_functionSamples.find(m_funcName);
     if (fsit != g_displayedSampleInfo->m_functionSamples.end()) {
       FunctionSample *fs = &fsit->second;
-      DoGraph(fs);
+      DoGraph(fs, bSkipPCInUnknownModules);
       m_fs = fs;
     }
   }

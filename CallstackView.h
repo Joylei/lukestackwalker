@@ -33,8 +33,8 @@ class CallStackView: public wxScrolledWindow  {
 public:
   CallStackView( wxNotebook *parent, ProfilerSettings *pSettings );
   ~CallStackView();
-  void ShowCallstackToFunction(const char *funcName);
-  void DoGraph(FunctionSample *fs);
+  void ShowCallstackToFunction(const char *funcName, bool bSkipPCInUnknownModules);
+  void DoGraph(FunctionSample *fs, bool bSkipPCInUnknownModules);
   
   void OnDraw(wxDC &dc);
   void OnLeftButtonUp(wxMouseEvent &evt);
