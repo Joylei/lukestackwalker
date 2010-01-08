@@ -238,7 +238,7 @@ void SortFunctionSamples(ThreadSampleInfo *threadInfo) {
 }
 
 
-double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, time_t duration,  ProfilerProgressStatus *status, bool bConnectToServer) {
+double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, time_t duration,  ProfilerProgressStatus *status, bool bConnectToServer, bool bAbortWhenOutsideKnownModules) {
   SetPriorityClass(GetCurrentProcess(), HIGH_PRIORITY_CLASS);  
 
   HANDLE hProcess = OpenProcess(
@@ -256,6 +256,7 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
   }
   MyStackWalker sw(options, dwProcessId, hProcess, debugInfoPath, status);
   sw.LoadModules();
+  sw.SetAbortAtPCOutsideKnownModules(bAbortWhenOutsideKnownModules);
 
 
   // now enum all threads for this processId
@@ -702,7 +703,7 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   status->secondsLeftToStart = 0;
   double sampleSpeed = 0;
   if (!status->bFinishedSampling) {
-    sampleSpeed = ProfileProcess(pi.dwProcessId, debugPaths.c_str(), settings->m_sampleDepth, settings->m_samplingTime, status, settings->m_bConnectToSymServer);
+    sampleSpeed = ProfileProcess(pi.dwProcessId, debugPaths.c_str(), settings->m_sampleDepth, settings->m_samplingTime, status, settings->m_bConnectToSymServer, settings->m_bStopAtPCOutsideModules);
   }
   if (!settings->m_bAttachToProcess) {
     TerminateProcess(pi.hProcess, 0);

@@ -1116,8 +1116,12 @@ BOOL StackWalker::ShowCallstack(HANDLE hThread, int maxDepth, const CONTEXT *con
       } // got module info OK
       else
       {
-        this->OnDbgHelpErr("SymGetModuleInfo64", GetLastError(), s.AddrPC.Offset);
+        this->OnDbgHelpErr("SymGetModuleInfo64", GetLastError(), s.AddrPC.Offset);        
       }
+
+      if ((csEntry.moduleName[0] == 0) && m_bAbortWhenPCOutsideKnownModules)
+          break;
+
     } // we seem to have a valid PC
 
     CallstackEntryType et = nextEntry;

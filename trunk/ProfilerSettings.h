@@ -3,7 +3,7 @@
 #include <list>
 #include <map>
 
-enum {CURRENT_VERSION = 7};
+enum {CURRENT_VERSION = 8};
 
 class ProfilerSettings {
 public:
@@ -14,6 +14,7 @@ public:
     m_bChanged = false;
     m_bConnectToSymServer = true;
     m_bAttachToProcess = true;
+    m_bStopAtPCOutsideModules = true;
   }
   bool m_bAttachToProcess;
   bool m_bChanged;
@@ -28,6 +29,7 @@ public:
   std::map<wxString, wxString> m_sourceFileSubstitutions;
   std::map<wxString, wxString> m_symbolAbbreviations;
   std::map<wxString, wxString> m_environmentVariables;
+  bool m_bStopAtPCOutsideModules;
 
   enum { SAMPLINGTIME_MANUALCONTROL = -1};
   wxString m_settingsFileName;
@@ -57,6 +59,8 @@ public:
     if (m_bConnectToSymServer != rhs.m_bConnectToSymServer)
       return false;
     if (m_environmentVariables != rhs.m_environmentVariables)
+      return false;
+    if (m_bStopAtPCOutsideModules != rhs.m_bStopAtPCOutsideModules)
       return false;
     return true;
   }
