@@ -32,6 +32,9 @@
 #include <wx/listctrl.h>
 #include <wx/tooltip.h>
 #include <wx/file.h>
+#include <wx/fdrepdlg.h>
+#include <wx/generic/statusbr.h>
+
 
 
 class wxListViewComboPopup : public wxListView, public wxComboPopup {
@@ -167,6 +170,9 @@ EVT_MENU(File_Save_Settings,      StackWalkerMainWnd::OnFileSaveSettings)
 EVT_MENU(File_Save_Settings_As,   StackWalkerMainWnd::OnFileSaveSettingsAs)
 EVT_MENU(File_Load_Settings,      StackWalkerMainWnd::OnFileLoadSettings)
 EVT_MENU(File_Load_Source,        StackWalkerMainWnd::OnFileLoadSourceFile)
+
+EVT_MENU(Edit_Find_Function,      StackWalkerMainWnd::OnFindFunction)
+
 EVT_MENU(View_Abbreviate,         StackWalkerMainWnd::OnViewAbbreviate)
 EVT_MENU(Profile_Run,             StackWalkerMainWnd::OnProfileRun)
 EVT_MENU(Zoom_Out,                StackWalkerMainWnd::OnZoomOut)
@@ -190,6 +196,9 @@ EVT_MENU_RANGE(wxID_FILE1, wxID_FILE9, StackWalkerMainWnd::OnMRUFile)
 EVT_CLOSE(StackWalkerMainWnd::OnClose)
 
 EVT_SPLITTER_SASH_POS_CHANGING(HorizontalSplitter, StackWalkerMainWnd::OnHorizontalSplitterChanging)  
+
+EVT_FIND(wxID_ANY, StackWalkerMainWnd::OnFindDialog)
+EVT_FIND_NEXT(wxID_ANY, StackWalkerMainWnd::OnFindDialog)
 
 
 END_EVENT_TABLE()
@@ -286,6 +295,33 @@ EVT_MOTION(MyGrid::OnMouseMove)
 EVT_LEFT_DOWN(MyGrid::OnMouseMove)  
 END_EVENT_TABLE()
 
+class MyStatusBar : public wxStatusBarGeneric {
+public:
+  MyStatusBar(wxFrame *frame, wxWindowID id, long style) : wxStatusBarGeneric(frame, id, style) {
+  };
+  virtual void SetStatusText(const wxString& text, int i = 0) {
+    wxString str = text;
+    if (text.length() < 3) {      
+      str = " ";
+    }
+    wxStatusBarGeneric::SetStatusText(str, i);
+  }
+};
+
+wxStatusBar *StackWalkerMainWnd::OnCreateStatusBar(int number,
+                                        long style,
+                                        wxWindowID id,
+                                        const wxString&)
+{
+    wxStatusBar *statusBar wxDUMMY_INITIALIZE(NULL);
+
+    statusBar = (wxStatusBar *)new MyStatusBar(this, id, style);
+
+    statusBar->SetFieldsCount(number);
+
+    return statusBar;
+}
+
 
 void StackWalkerMainWnd::OnMRUFile(wxCommandEvent& ev) {
   wxFileName fn(m_fileHistory.GetHistoryFile(ev.GetId() - wxID_FILE1));
@@ -327,6 +363,9 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 {
   wxMenu *menuFile = new wxMenu;
 
+  m_pFindReplaceDialog = 0;
+  m_pFindReplaceData =  new wxFindReplaceData(wxFR_DOWN);
+
   wxLog::SetTimestamp(0);
   wxLog::SetLogLevel(1000);
 
@@ -343,6 +382,11 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   menuFile->Append(Wizard_Quit, _T("E&xit\tAlt-X"), _T("Quit this program"));
   m_fileHistory.UseMenu(menuFile);
   m_fileHistory.AddFilesToMenu();
+
+  wxMenu *menuEdit = new wxMenu;
+  menuEdit->Append(Edit_Find_Function, "&Find\tCtrl-F", "Find a function in the profile.");
+  
+  
 
   wxMenu *profileMenu = new wxMenu;
   profileMenu->Append(Wizard_RunModal, _T("&Project Setup...\tCtrl-R"), _T("Starts the project setup wizard."));
@@ -362,6 +406,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   // now append the freshly created menu to the menu bar...
   wxMenuBar *menuBar = new wxMenuBar();
   menuBar->Append(menuFile, _T("&File"));
+  menuBar->Append(menuEdit, _T("&Edit"));
   menuBar->Append(profileMenu, "&Profile");
   menuBar->Append(viewMenu, "&View");
   menuBar->Append(helpMenu, _T("&Help"));
@@ -371,7 +416,11 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 
   wxConfigBase::Get()->SetPath(_T("/MainFrame"));
 
+  UseNativeStatusBar(false);
   CreateStatusBar();
+  int widths = -1;
+  GetStatusBar()->SetFieldsCount(1);
+  GetStatusBar()->SetStatusWidths(1, &widths);  
 
 
   enum TbBitMaps {OPEN, SAVE_SETTINGS, SAVE_PROFILE, SETTINGS, RUN, ZOOM_IN, ZOOM_OUT, NBITMAPS};
@@ -494,6 +543,9 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 }
 
 StackWalkerMainWnd::~StackWalkerMainWnd() {
+  delete m_pFindReplaceDialog;
+  delete m_pFindReplaceData;  
+
   if (!IsMaximized()) {
     int x, y, w, h;
     GetClientSize(&w, &h);
@@ -770,7 +822,32 @@ void StackWalkerMainWnd::OnGridSelect(wxGridEvent &ev) {
         break;        
       }
       r--;
-  }  
+  }
+  
+  if (m_currentActiveFs && m_currentActiveFs->m_functionName.length()) { 
+    wxString prompt = m_settings.DoAbbreviations(m_currentActiveFs->m_functionName);
+    prompt += " samples in all threads: ";
+    std::multimap<unsigned int, unsigned int> samplesInThreads; 
+    // first insert the per-thread sample counts to a multimap to get them sorted by sample count
+    for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin(); it != g_threadSamples.end(); ++it) {
+      std::map<std::string, FunctionSample>::iterator fsit = it->second.m_functionSamples.find(m_currentActiveFs->m_functionName);
+      if (fsit != it->second.m_functionSamples.end()) {
+        samplesInThreads.insert(std::pair<unsigned int, unsigned int>(fsit->second.m_sampleCount, it->first));        
+      }
+    }
+    // then add them in order to the status string
+    wxString thlist;
+    for (std::multimap<unsigned int, unsigned int>::iterator it = samplesInThreads.begin(); it != samplesInThreads.end(); ++it) {
+      if (thlist.length()) {
+        thlist = ", " + thlist;
+      }
+      char buf[256];
+      sprintf(buf, "0x%X:%d", it->second, it->first);
+      thlist = buf + thlist;
+    }
+    prompt += thlist;
+    GetStatusBar()->SetStatusText(prompt);
+  }
 }
 
 
@@ -784,21 +861,6 @@ void StackWalkerMainWnd::OnGridLabelLeftClick(wxGridEvent &ev) {
   if (m_resultsGrid->GetGridCursorRow() != row) 
     m_resultsGrid->SetGridCursor(row, 0);
 
-
-
-  int r = g_displayedSampleInfo->m_sortedFunctionSamples.size() - 1;
-  for (std::list<FunctionSample *> ::iterator it = g_displayedSampleInfo->m_sortedFunctionSamples.begin();
-    it != g_displayedSampleInfo->m_sortedFunctionSamples.end(); ++it) {
-      if (r == row) {        
-        m_currentActiveFs = (*it);
-        m_callstackView->ShowCallstackToFunction((*it)->m_functionName.c_str(), m_settings.m_bStopAtPCOutsideModules);
-        if (m_currentActiveFs->m_callgraph.size()) {
-          OnClickCaller(&(*m_currentActiveFs->m_callgraph.begin()));
-        }
-        break;        
-      }
-      r--;
-  }  
 }
 
 class ProfilerGridCellRenderer : public wxGridCellStringRenderer {
@@ -1226,5 +1288,71 @@ void StackWalkerMainWnd::OnHorizontalSplitterChanging(wxSplitterEvent& event) {
   extra = totalSize.GetX() - clientSize.GetX();  
   if (pos > m_gridWidth + extra) {
     event.SetSashPosition(m_gridWidth + extra);
+  }
+}
+
+
+void StackWalkerMainWnd::OnFindFunction(wxCommandEvent&) {
+  if (!m_resultsGrid->wxWindow::IsShownOnScreen()) 
+    return; 
+  if ( m_pFindReplaceDialog ) {
+    delete m_pFindReplaceDialog;
+    m_pFindReplaceDialog = NULL;
+  } else {
+    m_pFindReplaceDialog = new wxFindReplaceDialog (
+    this, m_pFindReplaceData, _T("Find a function in the profile"),
+    wxFR_NOWHOLEWORD);
+    m_pFindReplaceDialog->Show(true);
+  }
+}
+
+bool FindMatch(wxString needle, wxString haystack, bool bCaseSensitive) {
+  if (!bCaseSensitive) {
+    needle = needle.MakeUpper();
+    haystack = haystack.MakeUpper();
+  }
+  return haystack.Contains(needle);
+}
+
+void StackWalkerMainWnd::OnFindDialog(wxFindDialogEvent& event) {
+  if (!m_resultsGrid->wxWindow::IsShownOnScreen()) 
+    return;
+  static bool bInMessageBox = false;
+  if (bInMessageBox)
+    return;
+  
+  wxEventType type = event.GetEventType();
+  if ( type == wxEVT_COMMAND_FIND || type == wxEVT_COMMAND_FIND_NEXT ) {                             
+    wxString findString = event.GetFindString().c_str();
+    bool bDown = !!(event.GetFlags() & wxFR_DOWN);
+    bool bCaseSensitive = !!(event.GetFlags() & wxFR_MATCHCASE);
+    int curr = 0;
+    wxArrayInt rows = m_resultsGrid->GetSelectedRows();
+    if (rows.Count() && rows.Item(0)) {
+      curr = rows.Item(0);
+    }
+    int step = 1;
+    int end = m_resultsGrid->GetNumberRows();
+    if (!bDown) {
+      step = -1;
+      end = -1;
+    }
+    
+    for (curr = curr + step; curr != end; curr += step) {
+      wxString str = m_resultsGrid->GetCellValue(curr, 0);
+      if (FindMatch(findString, str, bCaseSensitive)) {
+        m_resultsGrid->SelectRow(curr);
+        m_resultsGrid->SetGridCursor(curr, 0);
+        m_resultsGrid->MakeCellVisible(curr, 0);
+        break;
+      }
+    }
+
+    if (curr == end) {
+      bInMessageBox = true;
+      wxMessageBox("A function name containing the search string was not found.", wxT("Find Function"), wxOK | wxCENTRE);
+      bInMessageBox = false;
+    }
+    
   }
 }
