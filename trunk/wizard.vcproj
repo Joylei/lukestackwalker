@@ -69,7 +69,7 @@
 				Name="VCResourceCompilerTool"
 				PreprocessorDefinitions="__WXMSW__,_WINDOWS,NOPCH"
 				Culture="1033"
-				AdditionalIncludeDirectories="&quot;C:\wxWidgets-2.8.8\lib\vc_lib\mswd&quot;;&quot;C:\wxWidgets-2.8.8\include&quot;;."
+				AdditionalIncludeDirectories="&quot;C:\wxWidgets-2.8.10\lib\vc_lib\mswd&quot;;&quot;C:\wxWidgets-2.8.10\include&quot;;."
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"

@@ -8,6 +8,7 @@ enum
     File_Load_Settings,
     File_Save_Profile,
     File_Load_Profile,
+    Edit_Find_Function,    
     Profile_Run,
     Zoom_In,
     Zoom_Out,
@@ -38,6 +39,9 @@ class wxToolBar;
 class wxComboCtrl;
 class wxListViewComboPopup;
 class wxSplitterEvent;
+class wxFindReplaceDialog;
+class wxFindReplaceData;
+class wxFindDialogEvent;
 
 #include "CallStackView.h"
 
@@ -64,6 +68,8 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   wxString m_currentDataFile;
   wxFileHistory m_fileHistory;
   int m_gridWidth;
+  wxFindReplaceDialog *m_pFindReplaceDialog;
+  wxFindReplaceData *m_pFindReplaceData;
 
   void ClearContext();
   int m_verticalSplitterRestorePosition;
@@ -88,6 +94,8 @@ public:
     void OnFileSaveSettings(wxCommandEvent& event);
     void OnFileSaveSettingsAs(wxCommandEvent& event);
     void OnFileLoadSettings(wxCommandEvent& event);
+    void OnFindFunction(wxCommandEvent& event);    
+
     void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& event);
     void OnWizardCancel(wxWizardEvent& event);
     void OnWizardFinished(wxWizardEvent& event);
@@ -112,6 +120,9 @@ public:
     void LoadSettings(const char *fileName);
     void LoadProfileData(const char *fileName);
     void OnHorizontalSplitterChanging(wxSplitterEvent& event);
+    void OnFindDialog(wxFindDialogEvent& event);
+    wxStatusBar *OnCreateStatusBar(int number, long style, wxWindowID id, const wxString& name);
+
 private:
     // any class wishing to process wxWidgets events must use this macro
     DECLARE_EVENT_TABLE()

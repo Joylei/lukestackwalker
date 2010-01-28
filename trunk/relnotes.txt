@@ -1,3 +1,8 @@
+Release 0.9.6, Feb 1st 2010
+- Added Edit/Find - command that searches a function name containing a given string in the top-of-stack profile.
+- Display the sample count of the selected (top-of-stack) function in all threads in the program status bar
+- Politely refuse to attach to 'self' - this would not work anyway.
+
 Release 0.9.5, Jan 9th 2010
 - Bug fix: By default, abort call stack traversing if PC is not in any known module. Not doing
   this used to get a lot of bogus call stack data when the call stack could not be walked properly.
