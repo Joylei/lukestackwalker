@@ -90,8 +90,8 @@ void CallStackView::DoGraph(FunctionSample *fs, bool bSkipPCInUnknownModules) {
     nodeit != fs->m_callgraph.end(); ++nodeit) {
       if (bSkipPCInUnknownModules && !nodeit->m_functionSample->m_moduleName.length())
         continue;
-      for (std::list<Callee>::iterator edgeit = nodeit->m_callees.begin();
-        edgeit != nodeit->m_callees.end(); ++edgeit) {
+      for (std::list<Call>::iterator edgeit = nodeit->m_callsFromHere.begin();
+        edgeit != nodeit->m_callsFromHere.end(); ++edgeit) {
           if (edgeit->m_target->m_graphNode) {
             edgeit->m_graphEdge = agedge(m_graph, nodeit->m_graphNode, edgeit->m_target->m_graphNode);
           }
@@ -165,8 +165,8 @@ void CallStackView::OnDraw(wxDC &dc) {
   // draw graph edges
   for (std::list<Caller>::iterator nodeit = m_fs->m_callgraph.begin(); 
     nodeit != m_fs->m_callgraph.end(); ++nodeit) {
-      for (std::list<Callee>::iterator edgeit = nodeit->m_callees.begin();
-        edgeit != nodeit->m_callees.end(); ++edgeit) {
+      for (std::list<Call>::iterator edgeit = nodeit->m_callsFromHere.begin();
+        edgeit != nodeit->m_callsFromHere.end(); ++edgeit) {
           int nPen = ((NPENS - 1) * edgeit->m_count) / (m_fs->m_sampleCount?m_fs->m_sampleCount:1);
           if (nPen >= NPENS) {
             nPen = NPENS - 1;

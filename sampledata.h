@@ -12,8 +12,8 @@ struct FunctionSample;
 
 struct Caller;
 
-struct Callee {
-  Callee() {
+struct Call {
+  Call() {
     m_target = 0;
     m_count = 0;
     m_graphEdge = 0;
@@ -35,7 +35,7 @@ struct Caller {
     m_ordinalForSaving = 0;
   }
   FunctionSample *m_functionSample;
-  std::list<Callee>m_callees;
+  std::list<Call>m_callsFromHere;
   int m_sampleCount;
   int m_lineNumber;  
   Agnode_t *m_graphNode;
