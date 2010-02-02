@@ -176,21 +176,21 @@ public:
           pc = &m_firstEntry->m_callgraph.back();
         }
         pc->m_sampleCount++;
-        Callee *pCallee = 0;
+        Call *pCallee = 0;
         // then find if the edge already exists in the call graph
-        std::list<Callee>::iterator calleeIt = pc->m_callees.begin();
-        for (; calleeIt != pc->m_callees.end(); ++calleeIt) {
+        std::list<Call>::iterator calleeIt = pc->m_callsFromHere.begin();
+        for (; calleeIt != pc->m_callsFromHere.end(); ++calleeIt) {
           if (calleeIt->m_target == m_prevCaller) {
             pCallee = &(*calleeIt);
             break;
           }
         }
         // if not, add it
-        if (calleeIt == pc->m_callees.end()) {
-          Callee callee;
-          callee.m_target = m_prevCaller;
-          pc->m_callees.push_back(callee);
-          pCallee = &pc->m_callees.back();
+        if (calleeIt == pc->m_callsFromHere.end()) {
+          Call Call;
+          Call.m_target = m_prevCaller;
+          pc->m_callsFromHere.push_back(Call);
+          pCallee = &pc->m_callsFromHere.back();
         }
         pCallee->m_count++;
         m_prevCaller = pc;
@@ -394,11 +394,11 @@ void SelectThreadForDisplay(unsigned int threadId, bool bSelect) {
 }
 
 void CopyCallees(Caller *src, Caller *dst, FunctionSample *dstFs) {
-  for (std::list<Callee>::iterator srcit = src->m_callees.begin(); 
-       srcit != src->m_callees.end(); ++srcit) {
+  for (std::list<Call>::iterator srcit = src->m_callsFromHere.begin(); 
+       srcit != src->m_callsFromHere.end(); ++srcit) {
     bool bFound = false;
-    for (std::list<Callee>::iterator dstit = dst->m_callees.begin(); 
-       dstit != dst->m_callees.end(); ++dstit) {
+    for (std::list<Call>::iterator dstit = dst->m_callsFromHere.begin(); 
+       dstit != dst->m_callsFromHere.end(); ++dstit) {
          if ((dstit->m_target->m_functionSample->m_functionName ==
               srcit->m_target->m_functionSample->m_functionName) &&
               (srcit->m_target->m_functionSample->m_fileName ==
@@ -418,10 +418,10 @@ void CopyCallees(Caller *src, Caller *dst, FunctionSample *dstFs) {
              if ((cgit->m_functionSample->m_functionName == srcit->m_target->m_functionSample->m_functionName) &&
           (srcit->m_target->m_functionSample->m_fileName == cgit->m_functionSample->m_fileName) &&
           (srcit->m_target->m_functionSample->m_moduleName == cgit->m_functionSample->m_moduleName)) {
-            Callee c;
+            Call c;
             c.m_count = srcit->m_count;
             c.m_target = &(*cgit);
-            dst->m_callees.push_back(c);
+            dst->m_callsFromHere.push_back(c);
           }        
       }
     }
@@ -525,7 +525,7 @@ void ProduceDisplayData() {
       }
     }
 
-    { // 3rd pass - sum callee lists
+    { // 3rd pass - sum Call lists
       for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
         it != g_threadSamples.end(); it++) {
         ThreadSampleInfo *tsi = &it->second;
@@ -845,21 +845,21 @@ bool LoadSampleData(const wxString &fn) {
         int nCallees = 0;
         in >> nCallees;
         for (int c = 0; c < nCallees; ++c) {
-          Callee callee;
-          in >> callee.m_count;
+          Call call;
+          in >> call.m_count;
           int ordinal = 0;
           in >> ordinal;
           bool bFound = false;
           for (std::list<Caller>::iterator cit2 = fsit->second.m_callgraph.begin(); cit2 != fsit->second.m_callgraph.end(); ++cit2) {
             if (ordinal == cit2->m_ordinalForSaving) {
-              callee.m_target = &(*cit2);
+              call.m_target = &(*cit2);
               bFound = true;
               break;
             }
           }
           if (!bFound)
             return false;
-          cit->m_callees.push_back(callee);
+          cit->m_callsFromHere.push_back(call);
         }        
       }
     }
@@ -957,8 +957,8 @@ bool SaveSampleData(const wxString &fn) {
     for (std::map<std::string, FunctionSample>::iterator fsit = tsi->m_functionSamples.begin();
          fsit != tsi->m_functionSamples.end(); ++fsit) {      
       for (std::list<Caller>::iterator cit = fsit->second.m_callgraph.begin(); cit != fsit->second.m_callgraph.end(); ++cit) {
-        out << "Callees " << cit->m_callees.size() << endl;
-        for (std::list<Callee>::iterator clit = cit->m_callees.begin(); clit != cit->m_callees.end(); ++clit) {
+        out << "Callees " << cit->m_callsFromHere.size() << endl;
+        for (std::list<Call>::iterator clit = cit->m_callsFromHere.begin(); clit != cit->m_callsFromHere.end(); ++clit) {
           out << clit->m_count << endl;
           out << clit->m_target->m_ordinalForSaving << endl;
         }        
@@ -983,3 +983,55 @@ bool SaveSampleData(const wxString &fn) {
   g_bNewProfileData = false;
   return file_output.GetLastError() == wxSTREAM_NO_ERROR;
 }
+
+#if 0
+// todo: code for displaying a call tree from a function, very incomplete
+Caller *AddFunctionSampleToOutputIfNotThere(FunctionSample *output, FunctionSample *current) {  
+  for (std::list<Caller>::iterator it = output->m_callgraph.begin(); it != output->m_callgraph.end(); ++it) {
+    if (it->m_functionSample == current) {
+      return it->m_functionSample;
+    }
+  }
+  Caller c;
+  c.m_functionSample = current;
+  output->m_callgraph.push_back(c);
+  return &(*output->m_callgraph.back());
+}
+
+Call *AddCallToOutputIfNotThere() {
+
+}
+
+void AddCallsFromHereToOutput(Caller *here, FunctionSample *output, std::set<Caller*> &alreadyProcessed) {
+  for (std::list<Call>::iterator it = here->m_callsFromHere.begin(); it != here->m_callsFromHere.end(); ++it) {
+
+  }
+}
+
+
+
+void CollectCallsFromOneFunctionsCallstack(FunctionSample *input, FunctionSample *search, FunctionSample *output) {
+  std::set<Caller *>alreadyProcessedCallers;
+  for (std::list<Caller>::iterator it = input->m_callgraph.begin(); 
+    it != input->m_callgraph.end(); ++it) {
+      if (it->m_functionSample == search) {
+        Caller *pc = AddFunctionSampleToOutputIfNotThere(output, &(*it));
+        pc->m_sampleCount += it->m_sampleCount;
+        alreadyProcessedCallers.insert(&(*caller));
+        AddCallsFromeHereToOutput(&(*it), pc, &alreadyProcessedCallers);
+      }
+  }      
+}
+
+void CollectCallsFromFunction(const char *name, FunctionSample *output) {
+  output->m_callgraph.clear();
+  std::map<std::string, FunctionSample>::iterator targ_it = g_displayedSampleInfo->m_functionSamples.find(name);
+  if (targ_it == g_displayedSampleInfo->m_functionSamples.end())
+    return;
+  for (std::map<std::string, FunctionSample>::iterator fsit = g_displayedSampleInfo->m_functionSamples.begin();
+    fsit != g_displayedSampleInfo->m_functionSamples.end(); ++fsit) {
+      CollectCallsFromOneFunctionsCallstack(&fsit->second, &targ_it->second, output);
+  }
+    
+}
+#endif
