@@ -1,3 +1,8 @@
+Release 0.9.7, Apr 19th 2010
+- A sexier display of samples per source line
+- An option in the view menu to display samples either as sample counts or percentage of total samples
+
+
 Release 0.9.6, Feb 2nd 2010
 - Added Edit/Find - command that searches a function name containing a given string in the top-of-stack profile.
 - Display the sample count of the selected (top-of-stack) function in all threads in the program status bar

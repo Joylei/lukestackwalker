@@ -15,6 +15,8 @@ enum
     MaximizeOrRestore_View,
     View_Abbreviate,
     View_Ignore_Function,
+    View_SamplesAsPercentage,
+    View_SamplesAsSampleCounts,
     File_Load_Source,
     Results_Grid,
     Help_ShowManual,
@@ -42,6 +44,8 @@ class wxSplitterEvent;
 class wxFindReplaceDialog;
 class wxFindReplaceData;
 class wxFindDialogEvent;
+class EditParent;
+
 
 #include "CallStackView.h"
 
@@ -51,6 +55,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   wxTextCtrl *m_logCtrl;    
   MyGrid *m_resultsGrid;
   Edit *m_sourceEdit;
+  EditParent *m_editParent;
   wxSplitterWindow *m_horzSplitter;
   wxSplitterWindow *m_vertSplitter; 
   CallStackView *m_callstackView;
@@ -62,6 +67,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   wxComboCtrl *m_toolbarThreadsCombo;
   wxListViewComboPopup *m_toolbarThreadsListPopup;  
   wxLog *m_logTargetOld;
+  wxMenu *m_viewMenu;
   
   wxString m_currentFunction;
   wxString m_currentSourceFile;
@@ -78,6 +84,7 @@ class StackWalkerMainWnd : public wxFrame, public CallStackViewClickCallback {
   void RefreshGridView();
   void ProfileDataChanged();
   bool ComplainAboutNonSavedProfile();
+  bool m_bWievSamplesAsSampleCounts;
 
 public:
     // ctor(s)
@@ -112,6 +119,12 @@ public:
     void OnFileSaveProfile(wxCommandEvent& event);
     void OnFileLoadProfile(wxCommandEvent& event);
     void OnMRUFile(wxCommandEvent& event);
+
+    void OnViewSamplesAsSampleCounts(wxCommandEvent& event);
+    void OnUpdateMenuItemSamplesAsSampleCounts(wxUpdateUIEvent& event);
+
+    void OnViewSamplesAsPercentage(wxCommandEvent& event);
+    void OnUpdateMenuItemSamplesAsPercentage(wxUpdateUIEvent& event);
     
 
     virtual void OnClickCaller(Caller *caller);

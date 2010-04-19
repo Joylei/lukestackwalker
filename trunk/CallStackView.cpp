@@ -24,6 +24,7 @@ CallStackView::CallStackView(wxNotebook *parent, ProfilerSettings *pSettings) :
     m_pSettings(pSettings)  
 {
   m_parent = parent;
+  m_bShowSamplesAsSampleCounts = true;
   wxFont m_font (8, wxMODERN, wxNORMAL, wxFONTWEIGHT_NORMAL, false, "Courier New");
   wxASSERT(m_font.IsOk());
   m_gvc = gvContext();
@@ -71,16 +72,34 @@ void CallStackView::DoGraph(FunctionSample *fs, bool bSkipPCInUnknownModules) {
       if (bSkipPCInUnknownModules && !nodeit->m_functionSample->m_moduleName.length())
         continue;
       char name[1024];
+      
+      int totalSamples = g_displayedSampleInfo->m_totalSamples - g_displayedSampleInfo->GetIgnoredSamples();
+
       if (nodeit == fs->m_callgraph.begin()) {
-        _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\nsamples:%d", m_pSettings->DoAbbreviations(fs->m_functionName).c_str(), fs->m_sampleCount);
+        char samples[64];
+        if (m_bShowSamplesAsSampleCounts) {
+          sprintf(samples, "%d", fs->m_sampleCount);
+        } else {
+          double val = (100.0 * (double)(fs->m_sampleCount) / totalSamples);
+          sprintf(samples, "%0.1lf%%", val);          
+        }
+        _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\nsamples:%s", m_pSettings->DoAbbreviations(fs->m_functionName).c_str(), samples);
       } else {
+        char samples[64];
+        if (m_bShowSamplesAsSampleCounts) {
+          sprintf(samples, "%d", nodeit->m_sampleCount);
+        } else {
+          double val = (100.0 * (double)(nodeit->m_sampleCount) / totalSamples);
+          sprintf(samples, "%0.1lf%%", val);          
+        }
+
         wxFileName fn(nodeit->m_functionSample->m_fileName); 
         if (!nodeit->m_functionSample->m_fileName.length()) {
-         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
-                  nodeit->m_functionSample->m_moduleName.c_str(), nodeit->m_lineNumber, nodeit->m_sampleCount);
+         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s\nline:%d samples:%s", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
+                  nodeit->m_functionSample->m_moduleName.c_str(), nodeit->m_lineNumber, samples);
         } else {
-         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s.%s\nline:%d samples:%d", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
-                  fn.GetName().c_str(), fn.GetExt().c_str(), nodeit->m_lineNumber, nodeit->m_sampleCount);
+         _snprintf_s(name, sizeof(name), _TRUNCATE, "%s\n%s.%s\nline:%d samples:%s", m_pSettings->DoAbbreviations(nodeit->m_functionSample->m_functionName).c_str(),
+                  fn.GetName().c_str(), fn.GetExt().c_str(), nodeit->m_lineNumber, samples);
         }
       }      
       nodeit->m_graphNode = agnode(m_graph, name);

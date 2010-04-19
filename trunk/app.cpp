@@ -180,6 +180,11 @@ EVT_MENU(Zoom_In,                 StackWalkerMainWnd::OnZoomIn)
 EVT_MENU(MaximizeOrRestore_View,  StackWalkerMainWnd::OnMaximizeView)
 EVT_MENU(View_Ignore_Function,    StackWalkerMainWnd::OnViewIgnoreFunction)
 
+EVT_MENU(View_SamplesAsPercentage, StackWalkerMainWnd::OnViewSamplesAsPercentage)
+EVT_UPDATE_UI(View_SamplesAsPercentage, StackWalkerMainWnd::OnUpdateMenuItemSamplesAsPercentage)
+EVT_MENU(View_SamplesAsSampleCounts, StackWalkerMainWnd::OnViewSamplesAsSampleCounts)
+EVT_UPDATE_UI(View_SamplesAsSampleCounts, StackWalkerMainWnd::OnUpdateMenuItemSamplesAsSampleCounts)
+
 EVT_MENU(File_Save_Profile,      StackWalkerMainWnd::OnFileSaveProfile)
 EVT_MENU(File_Load_Profile,      StackWalkerMainWnd::OnFileLoadProfile)
 
@@ -361,6 +366,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 :wxFrame((wxFrame *)NULL, wxID_ANY, title,
          wxDefaultPosition, wxSize(600, 400))  // small frame
 {
+
   wxMenu *menuFile = new wxMenu;
 
   m_pFindReplaceDialog = 0;
@@ -392,12 +398,16 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   profileMenu->Append(Wizard_RunModal, _T("&Project Setup...\tCtrl-R"), _T("Starts the project setup wizard."));
   profileMenu->Append(Profile_Run, "Run\tF5", "Run a new profiling session");
 
-  wxMenu *viewMenu = new wxMenu;
-  viewMenu->Append(Zoom_In, _T("Zoom &In\tCtrl-I"), _T("Zoom in call graph view."));
-  viewMenu->Append(Zoom_Out, _T("Zoom &Out\tCtrl-O"), _T("Zoom out call graph view."));
-  viewMenu->Append(MaximizeOrRestore_View, _T("&Maximize/Restore Current View\tCtrl-M"));
-  viewMenu->Append(View_Abbreviate, _T("&Abbreviate Name\tCtrl-A"), _T("Specify abbreviations to shorten displayed names."));
-  viewMenu->Append(View_Ignore_Function, _T("&Ignore/Count in This function\tF2"), _T("Toggles whether this function is included in total sample count calculation."));
+  m_viewMenu = new wxMenu;
+  m_viewMenu->Append(Zoom_In, _T("Zoom &In\tCtrl-I"), _T("Zoom in call graph view."));
+  m_viewMenu->Append(Zoom_Out, _T("Zoom &Out\tCtrl-O"), _T("Zoom out call graph view."));
+  m_viewMenu->Append(MaximizeOrRestore_View, _T("&Maximize/Restore Current View\tCtrl-M"));
+  m_viewMenu->Append(View_Abbreviate, _T("&Abbreviate Name\tCtrl-A"), _T("Specify abbreviations to shorten displayed names."));
+  m_viewMenu->Append(View_Ignore_Function, _T("&Ignore/Count in This function\tF2"), _T("Toggles whether this function is included in total sample count calculation."));
+  
+  m_viewMenu->AppendRadioItem(View_SamplesAsPercentage, _T("Show Samples as &Percentages\tCtrl-P"), _T("Show sample counts as percentages of total samples in the selected thread(s)."));
+  m_viewMenu->AppendRadioItem(View_SamplesAsSampleCounts, _T("Show Sample Counts\tCtrl-K"), _T("Show straight sample counts."));
+  m_viewMenu->FindItem(View_SamplesAsPercentage)->Check(true);
 
   wxMenu *helpMenu = new wxMenu;
   helpMenu->Append(Help_ShowManual, _T("&User's Manual...\tF1"), _T("Show Luke Stackwalker user's manual (requires a PDF reader application)."));
@@ -408,7 +418,7 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   menuBar->Append(menuFile, _T("&File"));
   menuBar->Append(menuEdit, _T("&Edit"));
   menuBar->Append(profileMenu, "&Profile");
-  menuBar->Append(viewMenu, "&View");
+  menuBar->Append(m_viewMenu, "&View");
   menuBar->Append(helpMenu, _T("&Help"));
 
   // ... and attach this menu bar to the frame
@@ -494,7 +504,6 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   SetClientSize(w, h);
 
 
-
   m_vertSplitter = new wxSplitterWindow(this, wxID_ANY, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER);
 
   m_bottomNotebook = new wxNotebook(m_vertSplitter, wxID_ANY,
@@ -513,15 +522,18 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
 
 
   m_horzSplitter = new wxSplitterWindow(m_vertSplitter, HorizontalSplitter, wxDefaultPosition, GetClientSize(), wxSP_3D | wxSP_BORDER);
+  
 
-  m_sourceEdit = new Edit(m_horzSplitter);
+  m_editParent = new EditParent(m_horzSplitter, wxID_ANY);
 
+  m_sourceEdit = m_editParent->GetEdit();
+  
   m_resultsGrid = new MyGrid( m_horzSplitter,
     Results_Grid,
     wxDefaultPosition, wxDefaultSize);
 
   m_vertSplitter->SplitHorizontally(m_horzSplitter, m_bottomNotebook);  
-  m_horzSplitter->SplitVertically(m_resultsGrid, m_sourceEdit);
+  m_horzSplitter->SplitVertically(m_resultsGrid, m_editParent);
 
   m_vertSplitter->UpdateSize();
   m_vertSplitter->SetMinimumPaneSize(1);  
@@ -540,6 +552,10 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_gridWidth = 0;
 
   m_logTargetOld = wxLog::SetActiveTarget( new wxLogTextCtrl(m_logCtrl)  );
+
+  m_bWievSamplesAsSampleCounts = !!wxConfigBase::Get()->Read(_T("showSampleCounts"), (long)0);
+  m_sourceEdit->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
+  m_callstackView->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
 }
 
 StackWalkerMainWnd::~StackWalkerMainWnd() {
@@ -555,6 +571,9 @@ StackWalkerMainWnd::~StackWalkerMainWnd() {
     wxConfigBase::Get()->Write(_T("/MainFrame/w"), (long) w);
     wxConfigBase::Get()->Write(_T("/MainFrame/h"), (long) h);
   }
+
+  wxConfigBase::Get()->Write(_T("/MainFrame/showSampleCounts"), (long)m_bWievSamplesAsSampleCounts);
+
   m_fileHistory.Save(*wxConfigBase::Get());
 
   delete wxLog::SetActiveTarget( m_logTargetOld  );
@@ -763,6 +782,7 @@ void StackWalkerMainWnd::OnClickCaller(Caller *caller) {
     wxString fn = caller->m_functionSample->m_fileName.c_str();
     if (fn.IsEmpty()) {
       m_currentSourceFile = "";
+      m_sourceEdit->LoadFile("");
     } else {
       if (m_settings.m_sourceFileSubstitutions.find(fn) != m_settings.m_sourceFileSubstitutions.end()) {
         m_sourceEdit->LoadFile(fn, m_settings.m_sourceFileSubstitutions.find(fn)->second);
@@ -883,8 +903,14 @@ public:
       dc.SetPen(*wxWHITE_PEN);
       dc.SetBrush(*wxGREEN_BRUSH);
       double perc = atof(grid.GetCellValue(row, col).c_str()) / m_maxValue;
+
       rectBar.width = (int)(rectBar.width * perc);
-      dc.DrawRectangle(rectBar);
+
+      wxColor ec = *wxRED;
+      wxColor sc = *wxGREEN;
+      wxColour barEndC = GetGradientEndColorByFraction(sc, ec, perc);                    
+      dc.GradientFillLinear(rectBar, sc, barEndC);
+      
 
 
       int hAlign, vAlign;
@@ -958,7 +984,7 @@ public:
       }
 
       // now we only have to draw the text
-      SetTextColoursAndFont(grid, attr, dc, isSelected);
+      SetTextColoursAndFont(grid, attr, dc, false);
 
       grid.DrawTextRectangle(dc, grid.GetCellValue(row, col),
         rect, hAlign, vAlign);
@@ -988,12 +1014,7 @@ void StackWalkerMainWnd::RefreshGridView() {
     g_displayedSampleInfo->m_totalSamples = 1;
   // func, samples, file, lines, module
 
-  int ignoredSamples = 0;
-  for (std::list<FunctionSample *> ::iterator it = g_displayedSampleInfo->m_sortedFunctionSamples.begin();
-       it != g_displayedSampleInfo->m_sortedFunctionSamples.end(); ++it) {
-     if ((*it)->m_bIgnoredFromDisplay)
-       ignoredSamples += (*it)->m_sampleCount;
-  }
+  int ignoredSamples = g_displayedSampleInfo->GetIgnoredSamples();
 
   m_resultsGrid->CreateGrid(g_displayedSampleInfo->m_sortedFunctionSamples.size(), 5);  
   m_resultsGrid->BeginBatch();
@@ -1013,7 +1034,12 @@ void StackWalkerMainWnd::RefreshGridView() {
         sprintf(buf, "ignored");
       } else {
         double val = (100.0 * (double)((*it)->m_sampleCount) / (g_displayedSampleInfo->m_totalSamples - ignoredSamples));
-        sprintf(buf, "%0.1lf%%", val);
+        if (m_bWievSamplesAsSampleCounts) {
+          val = (*it)->m_sampleCount;
+          sprintf(buf, "%0.0f", val);
+        } else {
+          sprintf(buf, "%0.1lf%%", val);
+        }
         if (val > ProfilerGridCellRenderer::m_maxValue) {
           ProfilerGridCellRenderer::m_maxValue = val;
         }
@@ -1186,7 +1212,8 @@ void StackWalkerMainWnd::OnMaximizeView(wxCommandEvent&) {
   m_horizontalSplitterRestorePosition = m_horzSplitter->GetSashPosition();
   wxPoint sz = GetClientRect().GetBottomRight();  
 
-  if (pFocusWindow == m_sourceEdit) {
+  if (pFocusWindow == m_sourceEdit || pFocusWindow == m_sourceEdit->GetLineSampleView() ||
+      pFocusWindow == m_sourceEdit->GetParent()) {
     m_horzSplitter->Unsplit(m_resultsGrid);
     m_vertSplitter->Unsplit(m_bottomNotebook);
   } else if (pFocusWindow == m_callstackView ||
@@ -1195,7 +1222,7 @@ void StackWalkerMainWnd::OnMaximizeView(wxCommandEvent&) {
       m_vertSplitter->Unsplit(m_horzSplitter);
   } else {  
     // grid is in focus
-    m_horzSplitter->Unsplit(m_sourceEdit);
+    m_horzSplitter->Unsplit(m_editParent);
     m_vertSplitter->Unsplit(m_bottomNotebook);
   }
 
@@ -1205,7 +1232,7 @@ void StackWalkerMainWnd::RestoreViews() {
   if (m_verticalSplitterRestorePosition >= 0 &&
     m_horizontalSplitterRestorePosition >= 0) {
       m_vertSplitter->SplitHorizontally(m_horzSplitter, m_bottomNotebook, m_verticalSplitterRestorePosition);  
-      m_horzSplitter->SplitVertically(m_resultsGrid, m_sourceEdit, m_horizontalSplitterRestorePosition);
+      m_horzSplitter->SplitVertically(m_resultsGrid, m_editParent, m_horizontalSplitterRestorePosition);
       m_verticalSplitterRestorePosition = -1;
       m_horizontalSplitterRestorePosition = -1;
   }
@@ -1355,4 +1382,31 @@ void StackWalkerMainWnd::OnFindDialog(wxFindDialogEvent& event) {
     }
     
   }
+}
+
+
+void StackWalkerMainWnd::OnUpdateMenuItemSamplesAsPercentage(wxUpdateUIEvent& event) {
+  event.Check(!m_bWievSamplesAsSampleCounts);
+}
+
+void StackWalkerMainWnd::OnUpdateMenuItemSamplesAsSampleCounts(wxUpdateUIEvent& event) {
+  event.Check(m_bWievSamplesAsSampleCounts);
+}
+
+void StackWalkerMainWnd::OnViewSamplesAsSampleCounts(wxCommandEvent&) {
+  if (m_bWievSamplesAsSampleCounts)
+    return;
+  m_bWievSamplesAsSampleCounts = true;
+  m_sourceEdit->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
+  m_callstackView->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
+  RefreshGridView();
+}
+
+void StackWalkerMainWnd::OnViewSamplesAsPercentage(wxCommandEvent&) {
+  if (!m_bWievSamplesAsSampleCounts)
+    return;
+  m_bWievSamplesAsSampleCounts = false;
+  m_sourceEdit->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
+  m_callstackView->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
+  RefreshGridView();
 }

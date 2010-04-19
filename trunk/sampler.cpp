@@ -1035,3 +1035,13 @@ void CollectCallsFromFunction(const char *name, FunctionSample *output) {
     
 }
 #endif
+
+int ThreadSampleInfo::GetIgnoredSamples() {
+  int ignoredSamples = 0;
+  for (std::list<FunctionSample *> ::iterator it = m_sortedFunctionSamples.begin();
+       it != m_sortedFunctionSamples.end(); ++it) {
+     if ((*it)->m_bIgnoredFromDisplay)
+       ignoredSamples += (*it)->m_sampleCount;
+  }
+  return ignoredSamples;
+}
