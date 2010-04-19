@@ -30,6 +30,7 @@ class CallStackView: public wxScrolledWindow  {
   wxBrush *m_brushes[NPENS];
   CallStackViewClickCallback *m_pcb;
   ProfilerSettings *m_pSettings;
+  bool m_bShowSamplesAsSampleCounts;
 public:
   CallStackView( wxNotebook *parent, ProfilerSettings *pSettings );
   ~CallStackView();
@@ -40,5 +41,6 @@ public:
   void OnLeftButtonUp(wxMouseEvent &evt);
   void SetZoom(double zoom);
   void SetClickCallback(CallStackViewClickCallback *pcb) {m_pcb = pcb;}
+  void SetShowSamplesAsSampleCounts(bool bShowSampleCounts) {m_bShowSamplesAsSampleCounts = bShowSampleCounts;}
   DECLARE_EVENT_TABLE()
 };

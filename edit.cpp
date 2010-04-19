@@ -20,11 +20,150 @@
 //! wxWidgets headers
 #include "wx/file.h"     // raw file io support
 #include "wx/filename.h" // filename support
+#include "wx/settings.h"
 
 //! application headers
 
 #include "edit.h"        // edit module
 #include "sampledata.h"
+
+//----------------------------------------------------------------------------
+// LineSampleView
+//----------------------------------------------------------------------------
+
+static FileLineInfo *s_pfli = 0;
+int s_maxSamplesPerLine = 0;
+
+enum {LINESAMPLEWIDTH = 58, EDITHEADERHEIGHT=19};
+
+BEGIN_EVENT_TABLE (LineSampleView, wxWindow)    
+    EVT_PAINT(LineSampleView::OnPaint)
+END_EVENT_TABLE()
+
+LineSampleView::LineSampleView(wxWindow* parent, wxWindowID id, const wxPoint& pos, const wxSize& size, long style, const wxString& name) :
+	  wxWindow(parent, id, pos, size, style, name) {
+   m_bShowSamplesAsSampleCounts = true;
+};
+
+wxColour GetGradientEndColorByFraction(const wxColour &sc, const wxColour &ec, double frac) {
+   return wxColor ((unsigned char)(sc.Red() + frac * (ec.Red() - sc.Red())), 
+                   (unsigned char)(sc.Green() + frac * (ec.Green() - sc.Green())), 
+                   (unsigned char)(sc.Blue() + frac * (ec.Blue() - sc.Blue())));
+}
+
+void LineSampleView::OnDraw(wxPaintDC &dc) {
+  wxSize sz = m_pEdit->GetClientSize();  
+  
+  int x = 0;
+  int y = 0;
+
+  
+  wxColour bkc = GetBackgroundColour();
+  wxBrush bkBrush(bkc);  
+  
+  wxPen   bkPen(bkc);
+  dc.SetPen(*wxMEDIUM_GREY_PEN);
+  dc.DrawLine(0, 0, LINESAMPLEWIDTH, 0);
+
+  dc.DrawLine(0, 0, 0, sz.y+30);
+  dc.SetPen(*wxGREY_PEN);
+  dc.DrawLine(1, 1, LINESAMPLEWIDTH, 1);
+  dc.DrawLine(1, 1, 1, sz.y+30);
+
+  dc.SetPen(*wxLIGHT_GREY_PEN);
+  int bottom = GetClientSize().y - 1;
+  dc.DrawLine(1, bottom, LINESAMPLEWIDTH, bottom);
+
+  m_pEdit->ClientToScreen(&x, &y);  
+  this->ScreenToClient(&x, &y);  
+  dc.SetPen(bkPen);
+  dc.SetBrush(bkBrush);
+  dc.SetFont(*wxNORMAL_FONT);
+  
+  if (!s_pfli || !g_displayedSampleInfo) {
+    dc.DrawRectangle(2, y, LINESAMPLEWIDTH, y+sz.y);
+    return;
+  }
+  int totalSamples = g_displayedSampleInfo->m_totalSamples - g_displayedSampleInfo->GetIgnoredSamples();  
+  int startLine = m_pEdit->GetFirstVisibleLine();
+  int lh = m_pEdit->TextHeight(startLine);
+  for (int l = startLine; y < sz.y; l++) {
+    char buf[256];
+    wxRect rectBase(2, y, LINESAMPLEWIDTH, lh);
+    dc.SetBrush(bkBrush);
+    dc.DrawRectangle(rectBase);
+    if (((int)s_pfli->m_lineSamples.size() > l+1)) {
+      if(s_pfli->m_lineSamples[l+1].m_sampleCount) {
+        wxRect rectBar(4, y+1, LINESAMPLEWIDTH, lh-4);
+        double perc = (double)s_pfli->m_lineSamples[l+1].m_sampleCount / (s_maxSamplesPerLine?s_maxSamplesPerLine:1);
+        rectBar.width = (int)(rectBar.width * perc);
+
+        wxColor ec = *wxRED;
+        wxColor sc = *wxGREEN;
+        wxColour barEndC = GetGradientEndColorByFraction(sc, ec, perc);                      
+        dc.GradientFillLinear(rectBar, sc, barEndC);
+        if (m_bShowSamplesAsSampleCounts) {                    
+          sprintf(buf, "%d", s_pfli->m_lineSamples[l+1].m_sampleCount);
+        } else {
+          sprintf(buf, "%0.2lf%%", (100.0 * s_pfli->m_lineSamples[l+1].m_sampleCount)/(totalSamples?totalSamples:1));
+        }
+        dc.DrawText(buf, 5, y);
+      }
+    }
+    y+= m_pEdit->TextHeight(l);
+  }  
+}
+
+void LineSampleView::OnPaint(wxPaintEvent&) {
+  wxPaintDC dc(this);
+  OnDraw(dc);
+}
+
+//----------------------------------------------------------------------------
+// EditParent
+//----------------------------------------------------------------------------
+
+
+BEGIN_EVENT_TABLE (EditParent, wxWindow)    
+    EVT_SIZE(EditParent::OnSize)
+    EVT_PAINT(EditParent::OnPaint)    
+END_EVENT_TABLE()
+
+EditParent::EditParent(wxWindow* parent, wxWindowID id, const wxPoint& pos, 
+                       const wxSize& size, long style, const wxString& name) :
+	wxWindow(parent, id, pos, size, style, name) {
+
+  m_edit = new Edit(this);
+  m_lineSampleView = new LineSampleView(this, wxID_ANY);
+  m_edit->SetLineSampleView(m_lineSampleView);
+  m_lineSampleView->SetEdit(m_edit);
+  m_font = *wxNORMAL_FONT;
+  m_font.SetWeight(wxBOLD);
+};
+  
+void EditParent::OnPaint(wxPaintEvent&) {
+  wxPaintDC dc(this);
+  dc.SetFont(m_font);
+  wxSize sz = GetClientSize();  
+  dc.SetPen(*wxLIGHT_GREY_PEN);
+  dc.DrawLine(0, 0, 0, EDITHEADERHEIGHT);
+  dc.DrawLine(LINESAMPLEWIDTH+2, 0, LINESAMPLEWIDTH+2, EDITHEADERHEIGHT);
+
+  wxString str = "Samples";
+  wxSize txsz = dc.GetTextExtent(str);
+  dc.DrawText(str, LINESAMPLEWIDTH/2-txsz.x/2, EDITHEADERHEIGHT/2-txsz.y/2);
+
+  wxString fn = m_edit->GetFilename();
+  txsz = dc.GetTextExtent(fn);
+  dc.DrawText(fn.c_str(), LINESAMPLEWIDTH+3 + (sz.x - LINESAMPLEWIDTH+3)/2 - txsz.x/2, EDITHEADERHEIGHT/2-txsz.y/2);
+}
+
+void EditParent::OnSize(wxSizeEvent &) {
+  wxSize sz = GetClientSize();  
+  m_lineSampleView->SetSize(0, EDITHEADERHEIGHT, LINESAMPLEWIDTH, sz.y-EDITHEADERHEIGHT);
+  m_edit->SetSize(LINESAMPLEWIDTH+2, EDITHEADERHEIGHT, sz.x-LINESAMPLEWIDTH, sz.y-EDITHEADERHEIGHT);
+}
+
 
 //----------------------------------------------------------------------------
 // Edit
@@ -40,8 +179,7 @@ END_EVENT_TABLE()
 
 
 void Edit::OnPainted(wxStyledTextEvent &) {
-  static int foo = 0;
-  foo++;
+  m_pLineSampleView->Refresh();
 }
 
 Edit::Edit (wxWindow *parent, wxWindowID id,
@@ -227,27 +365,6 @@ bool Edit::InitializePrefs (const wxString &name) {
     StyleSetBackground (m_FoldingID, *wxWHITE);
     SetMarginWidth (m_FoldingID, 0);
     SetMarginSensitive (m_FoldingID, false);
-    /*if (g_CommonPrefs.foldEnable) {
-        SetMarginWidth (m_FoldingID, curInfo->folds != 0? m_FoldingMargin: 0);
-        SetMarginSensitive (m_FoldingID, curInfo->folds != 0);
-        SetProperty (_T("fold"), curInfo->folds != 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.comment"),
-                     (curInfo->folds & mySTC_FOLD_COMMENT) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.compact"),
-                     (curInfo->folds & mySTC_FOLD_COMPACT) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.preprocessor"),
-                     (curInfo->folds & mySTC_FOLD_PREPROC) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.html"),
-                     (curInfo->folds & mySTC_FOLD_HTML) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.html.preprocessor"),
-                     (curInfo->folds & mySTC_FOLD_HTMLPREP) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.comment.python"),
-                     (curInfo->folds & mySTC_FOLD_COMMENTPY) > 0? _T("1"): _T("0"));
-        SetProperty (_T("fold.quotes.python"),
-                     (curInfo->folds & mySTC_FOLD_QUOTESPY) > 0? _T("1"): _T("0"));
-    }
-    SetFoldFlags (wxSTC_FOLDFLAG_LINEBEFORE_CONTRACTED |
-                  wxSTC_FOLDFLAG_LINEAFTER_CONTRACTED);*/
 
     // set spaces and indention
     SetTabWidth (4);
@@ -295,13 +412,14 @@ bool Edit::LoadFile (wxString filename, wxString openFrom) {
   m_filename = filename;
   
   Freeze();
-
-  FileLineInfo *pfli = 0;
+  
   if (g_displayedSampleInfo) {
     std::map<std::string, FileLineInfo>::iterator it =  g_displayedSampleInfo->m_lineSamples.find(filename.c_str());  
     if (it != g_displayedSampleInfo->m_lineSamples.end()) {
-      pfli = &it->second;
+      s_pfli = &it->second;
     }
+  } else {
+    s_pfli = 0;
   }
 
   ClearAll ();
@@ -316,206 +434,66 @@ bool Edit::LoadFile (wxString filename, wxString openFrom) {
     file.Open(filename);
   }
   if (!file.IsOpened()) {
+    s_pfli = 0;
+    m_LineNrMargin = 0;
+    ShowLineNumbers();
     Thaw();
-    if (!m_filename.length()) {      
+    if (!m_filename.length()) {
+      GetParent()->Refresh();
       return false;
     }
     wxString errMsg = "File ";
     errMsg += m_filename;
     errMsg += " could not be opened.\nUse the menu command File/Load Source File to open it.";
     InsertText (GetTextLength(), errMsg);
+    m_filename = "";
+    GetParent()->Refresh();
     return false;
   }
 
+  s_maxSamplesPerLine = 0;
+  for (int i = 0; i < (int)s_pfli->m_lineSamples.size(); i++) {
+    if (s_pfli->m_lineSamples[i].m_sampleCount > s_maxSamplesPerLine)
+      s_maxSamplesPerLine = s_pfli->m_lineSamples[i].m_sampleCount;
+  }
+  
+
+  int line = 1;
   long lng = file.Length ();
   if (lng > 0) {
     wxString buf;
     wxChar *buff = buf.GetWriteBuf (lng);
     file.Read (buff, lng);
-    buf.UngetWriteBuf ();
-    int line = 1;
+    buf.UngetWriteBuf ();    
     while (buf.Len()) {
       wxString lns = buf.BeforeFirst('\n');
       int right = buf.Len() - lns.Len() - 1;
       if (right < 0)
         right = 0;
-      buf = buf.Right(right);
-      char tag[256];
-      if (pfli && ((int)pfli->m_lineSamples.size() > line) && (pfli->m_lineSamples[line].m_sampleCount)) {
-        sprintf(tag, ":% 4d: ", pfli->m_lineSamples[line].m_sampleCount);             
-      } else {
-        strcpy(tag, ":    : ");
-      }
-      lns = tag + lns;
+      buf = buf.Right(right);    
       InsertText (GetTextLength(), lns);
       line++;
     }
   }
   file.Close();
 
+  wxString margin = "__";
+  while (line / 10) {
+    margin += "9";
+    line /= 10;
+  }
 
+  
+  m_LineNrMargin = TextWidth (wxSTC_STYLE_LINENUMBER, margin);
+  ShowLineNumbers();
+  
 
-  // determine lexer language
   wxFileName fname (m_filename);
   InitializePrefs (DeterminePrefs (fname.GetFullName()));
 
   Thaw();
+  GetParent()->Refresh();
 
   return true;
-}
-
-bool Edit::SaveFile ()
-{
-#if wxUSE_FILEDLG
-    // return if no change
-    if (!Modified()) return true;
-
-    // get filname
-    if (!m_filename) {
-        wxFileDialog dlg (this, _T("Save file"), wxEmptyString, wxEmptyString, _T("Any file (*)|*"),
-                          wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
-        if (dlg.ShowModal() != wxID_OK) return false;
-        m_filename = dlg.GetPath();
-    }
-
-    // save file
-    return SaveFile (m_filename);
-#else
-    return false;
-#endif // wxUSE_FILEDLG
-}
-
-bool Edit::SaveFile (const wxString &filename) {
-
-    // return if no change
-    if (!Modified()) return true;
-
-//     // save edit in file and clear undo
-//     if (!filename.empty()) m_filename = filename;
-//     wxFile file (m_filename, wxFile::write);
-//     if (!file.IsOpened()) return false;
-//     wxString buf = GetText();
-//     bool okay = file.Write (buf);
-//     file.Close();
-//     if (!okay) return false;
-//     EmptyUndoBuffer();
-//     SetSavePoint();
-
-//     return true;
-
-    return wxStyledTextCtrl::SaveFile(filename);
-
-}
-
-bool Edit::Modified () {
-
-    // return modified state
-    return (GetModify() && !GetReadOnly());
-}
-
-//----------------------------------------------------------------------------
-// EditProperties
-//----------------------------------------------------------------------------
-
-EditProperties::EditProperties (Edit *edit,
-                                long style)
-        : wxDialog (edit, wxID_ANY, wxEmptyString,
-                    wxDefaultPosition, wxDefaultSize,
-                    style | wxDEFAULT_DIALOG_STYLE | wxRESIZE_BORDER) {
-
-    // sets the application title
-    SetTitle (_("Properties"));
-    wxString text;
-
-    // fullname
-    wxBoxSizer *fullname = new wxBoxSizer (wxHORIZONTAL);
-    fullname->Add (10, 0);
-    fullname->Add (new wxStaticText (this, wxID_ANY, _("Full filename"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL);
-    fullname->Add (new wxStaticText (this, wxID_ANY, edit->GetFilename()),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL);
-
-    // text info
-    wxGridSizer *textinfo = new wxGridSizer (4, 0, 2);
-    textinfo->Add (new wxStaticText (this, wxID_ANY, _("Language"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    textinfo->Add (new wxStaticText (this, wxID_ANY, edit->m_language->name),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-    textinfo->Add (new wxStaticText (this, wxID_ANY, _("Lexer-ID: "),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    text = wxString::Format (_T("%d"), edit->GetLexer());
-    textinfo->Add (new wxStaticText (this, wxID_ANY, text),
-                   0, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-    wxString EOLtype = wxEmptyString;
-    switch (edit->GetEOLMode()) {
-        case wxSTC_EOL_CR: {EOLtype = _T("CR (Unix)"); break; }
-        case wxSTC_EOL_CRLF: {EOLtype = _T("CRLF (Windows)"); break; }
-        case wxSTC_EOL_LF: {EOLtype = _T("CR (Macintosh)"); break; }
-    }
-    textinfo->Add (new wxStaticText (this, wxID_ANY, _("Line endings"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    textinfo->Add (new wxStaticText (this, wxID_ANY, EOLtype),
-                   0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-
-    // text info box
-    wxStaticBoxSizer *textinfos = new wxStaticBoxSizer (
-                     new wxStaticBox (this, wxID_ANY, _("Informations")),
-                     wxVERTICAL);
-    textinfos->Add (textinfo, 0, wxEXPAND);
-    textinfos->Add (0, 6);
-
-    // statistic
-    wxGridSizer *statistic = new wxGridSizer (4, 0, 2);
-    statistic->Add (new wxStaticText (this, wxID_ANY, _("Total lines"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                    0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    text = wxString::Format (_T("%d"), edit->GetLineCount());
-    statistic->Add (new wxStaticText (this, wxID_ANY, text),
-                    0, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-    statistic->Add (new wxStaticText (this, wxID_ANY, _("Total chars"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                    0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    text = wxString::Format (_T("%d"), edit->GetTextLength());
-    statistic->Add (new wxStaticText (this, wxID_ANY, text),
-                    0, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-    statistic->Add (new wxStaticText (this, wxID_ANY, _("Current line"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                    0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    text = wxString::Format (_T("%d"), edit->GetCurrentLine());
-    statistic->Add (new wxStaticText (this, wxID_ANY, text),
-                    0, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-    statistic->Add (new wxStaticText (this, wxID_ANY, _("Current pos"),
-                                     wxDefaultPosition, wxSize(80, wxDefaultCoord)),
-                    0, wxALIGN_LEFT|wxALIGN_CENTER_VERTICAL|wxLEFT, 4);
-    text = wxString::Format (_T("%d"), edit->GetCurrentPos());
-    statistic->Add (new wxStaticText (this, wxID_ANY, text),
-                    0, wxALIGN_RIGHT|wxALIGN_CENTER_VERTICAL|wxRIGHT, 4);
-
-    // char/line statistics
-    wxStaticBoxSizer *statistics = new wxStaticBoxSizer (
-                     new wxStaticBox (this, wxID_ANY, _("Statistics")),
-                     wxVERTICAL);
-    statistics->Add (statistic, 0, wxEXPAND);
-    statistics->Add (0, 6);
-
-    // total pane
-    wxBoxSizer *totalpane = new wxBoxSizer (wxVERTICAL);
-    totalpane->Add (fullname, 0, wxEXPAND | wxLEFT | wxRIGHT | wxTOP, 10);
-    totalpane->Add (0, 6);
-    totalpane->Add (textinfos, 0, wxEXPAND | wxLEFT | wxRIGHT, 10);
-    totalpane->Add (0, 10);
-    totalpane->Add (statistics, 0, wxEXPAND | wxLEFT | wxRIGHT, 10);
-    totalpane->Add (0, 6);
-    wxButton *okButton = new wxButton (this, wxID_OK, _("OK"));
-    okButton->SetDefault();
-    totalpane->Add (okButton, 0, wxALIGN_CENTER | wxALL, 10);
-
-    SetSizerAndFit (totalpane);
-
-    ShowModal();
 }
 

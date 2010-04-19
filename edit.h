@@ -33,13 +33,49 @@
 
 
 class EditProperties;
+class Edit;
+
+
+wxColour GetGradientEndColorByFraction(const wxColour &startC, const wxColour &endC, double frac);
+
+
+class LineSampleView : public wxWindow {
+  Edit *m_pEdit;
+  bool m_bShowSamplesAsSampleCounts;
+public:
+  void SetShowSamplesAsSampleCounts(bool bShowSampleCounts) {m_bShowSamplesAsSampleCounts = bShowSampleCounts; Refresh();}
+	LineSampleView(wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxPanelNameStr);	
+	void OnPaint(wxPaintEvent& event);
+  void SetEdit(Edit *pe) {m_pEdit = pe;}
+protected:
+	DECLARE_EVENT_TABLE()
+  void OnDraw(wxPaintDC &dc);  
+};
+
+class Edit;
+
+class EditParent : public wxWindow {
+public:
+	EditParent(wxWindow* parent, wxWindowID id, const wxPoint& pos = wxDefaultPosition, const wxSize& size = wxDefaultSize, long style = 0, const wxString& name = wxPanelNameStr);
+	void OnSize(wxSizeEvent& event);
+  void OnPaint(wxPaintEvent& event);
+  Edit *GetEdit() {return m_edit;}
+  
+protected:
+	DECLARE_EVENT_TABLE()
+	LineSampleView *m_lineSampleView;
+  wxFont m_font;
+	Edit *m_edit;
+};
+
+
 
 
 //----------------------------------------------------------------------------
 //! Edit
 class Edit: public wxStyledTextCtrl {
     friend class EditProperties;
-
+    LineSampleView *m_pLineSampleView;
 public:
     //! constructor
     Edit (wxWindow *parent, wxWindowID id = wxID_ANY,
@@ -52,6 +88,7 @@ public:
     ~Edit ();
 
     void ShowLineNumbers ();
+    void SetShowSamplesAsSampleCounts(bool bShowSampleCounts) {m_pLineSampleView->SetShowSamplesAsSampleCounts(bShowSampleCounts);}
 
     // event handlers
     // common
@@ -67,12 +104,11 @@ public:
     //! load/save file
     bool LoadFile ();
     bool LoadFile (wxString filename, wxString openFrom = "");
-    bool SaveFile ();
-    bool SaveFile (const wxString &filename);
-    bool Modified ();
     wxString GetFilename () {return m_filename;};
     void SetFilename (const wxString &filename) {m_filename = filename;};
     void OnPainted(wxStyledTextEvent &);
+    void SetLineSampleView (LineSampleView *pv) {m_pLineSampleView = pv;}
+    LineSampleView *GetLineSampleView() {return m_pLineSampleView;}
 
 private:
     // file
@@ -103,6 +139,7 @@ public:
 private:
 
 };
+
 
 
 #endif // _EDIT_H_

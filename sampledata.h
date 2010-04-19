@@ -103,6 +103,7 @@ struct ThreadSampleInfo {
   int GetKernelTime_ms() {return (int)((m_kernelTimeEnd - m_kernelTimeStart) / 10000);}
   int GetUserTime_ms() {return (int)((m_userTimeEnd - m_userTimeStart) / 10000);}
   int GetCPUTime_ms() {return GetKernelTime_ms() + GetUserTime_ms();}
+  int GetIgnoredSamples();
 };
 
 
