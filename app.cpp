@@ -35,6 +35,8 @@
 #include <wx/fdrepdlg.h>
 #include <wx/generic/statusbr.h>
 
+static wxTextCtrl *s_pLogCtrl = 0;
+
 
 
 class wxListViewComboPopup : public wxListView, public wxComboPopup {
@@ -512,6 +514,8 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
   m_logCtrl = new wxTextCtrl(m_bottomNotebook, wxID_ANY, wxEmptyString,
     wxDefaultPosition, wxDefaultSize,
     wxTE_RICH | wxTE_MULTILINE | wxTE_READONLY | wxBORDER_NONE | wxHSCROLL);
+  
+  s_pLogCtrl = m_logCtrl;
 
   m_bottomNotebook->AddPage( m_logCtrl, "Log", false);
 
@@ -1163,12 +1167,15 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
     wxFileName fn(m_settings.m_executable);
     m_settings.m_currentDirectory = fn.GetVolume() + fn.GetVolumeSeparator() + fn.GetPath(wxPATH_GET_SEPARATOR);
   }  
-  
-  
-
-  if (!SampleProcessWithDialogProgress(this, &m_settings, m_logCtrl)) {
+    
+  m_logCtrl->Clear();
+  if (!SampleProcessWithDialogProgress(this, &m_settings)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
-  }  
+  }
+  int w,h;
+  m_logCtrl->GetSize(&w, &h);
+  m_logCtrl->SetSize(w, h-1);
+  m_logCtrl->SetSize(w, h);
 
   ProfileDataChanged(); 
 }
@@ -1409,4 +1416,31 @@ void StackWalkerMainWnd::OnViewSamplesAsPercentage(wxCommandEvent&) {
   m_sourceEdit->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
   m_callstackView->SetShowSamplesAsSampleCounts(m_bWievSamplesAsSampleCounts);
   RefreshGridView();
+}
+
+void LogMessage(bool bError, const char *format, ...) {
+  if (!s_pLogCtrl)
+    return;
+  wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
+  if (bError) {
+    attr.SetTextColour(*wxRED);
+    s_pLogCtrl->SetDefaultStyle(attr);
+  }
+
+  char buffer[10240];
+  va_list args;
+  va_start (args, format);
+  vsnprintf_s (buffer, sizeof(buffer), _TRUNCATE, format, args);
+  perror (buffer);
+  va_end (args);
+
+  wxLogMessage(buffer);
+
+  if (bError) {
+    attr.SetTextColour(*wxBLACK);
+    s_pLogCtrl->SetDefaultStyle(attr);
+  }
+  int pos = s_pLogCtrl->GetScrollRange(wxVERTICAL);
+  s_pLogCtrl->SetScrollPos(wxVERTICAL, pos);
+  s_pLogCtrl->ScrollLines(1);
 }

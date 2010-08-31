@@ -169,7 +169,7 @@
 				Name="VCResourceCompilerTool"
 				PreprocessorDefinitions="_DEBUG,__WXMSW__,__WXDEBUG__,_WINDOWS,NOPCH"
 				Culture="1033"
-				AdditionalIncludeDirectories="&quot;C:\wxWidgets-2.8.8\lib\vc_lib\mswd&quot;;&quot;C:\wxWidgets-2.8.8\include&quot;;."
+				AdditionalIncludeDirectories="&quot;C:\wxWidgets-2.8.10\lib\vc_lib\mswd&quot;;&quot;C:\wxWidgets-2.8.10\include&quot;;."
 			/>
 			<Tool
 				Name="VCPreLinkEventTool"
@@ -230,6 +230,10 @@
 			</File>
 			<File
 				RelativePath=".\CallStackView.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\CmdlineProfilerInterface.cpp"
 				>
 			</File>
 			<File
@@ -355,6 +359,10 @@
 		</File>
 		<File
 			RelativePath=".\CallstackView.h"
+			>
+		</File>
+		<File
+			RelativePath=".\CmdlineProfilerInterface.h"
 			>
 		</File>
 		<File

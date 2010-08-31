@@ -9,19 +9,22 @@
 #include <wx/log.h>
 #include <wx/textCtrl.h>
 #include <wx/stattext.h>
+#include "CmdlineProfilerInterface.h"
+#include <windows.h>
 
 class ProfileProgressDialog : public wxDialog, public wxThread {
 public:
-    wxTextCtrl *m_logControl;
     wxGauge *m_gauge;
     wxButton *m_cancelButton;
     wxButton *m_actionButton;    
     ProfileProgressDialog(wxWindow *parent, ProfilerSettings *settings);
     ProfilerSettings *m_settings;
-    ProfilerProgressStatus m_status;
+    ProfilerProgressStatus m_statusData;
+    ProfilerProgressStatus *m_status;
     bool m_bProfileReturnValue;
     bool m_bTitleChanged;
     bool m_bTitleChangedToLoading;
+    bool m_bRunningOn64BitOS;
     wxTimer m_timer;
     wxStaticText *m_staticText;
     unsigned int m_processId;
@@ -56,6 +59,7 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
                 : wxDialog(parent, wxID_ANY, wxString(_T("Waiting to start..."))),
                   wxThread(wxTHREAD_JOINABLE ),
                   m_timer(this) {
+    m_status = 0;
     m_settings = settings;
     wxBoxSizer *sizerTop = new wxBoxSizer(wxVERTICAL);
 
@@ -86,15 +90,18 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
     CenterOnParent(wxBOTH);
     m_bTitleChanged = false;
     m_bTitleChangedToLoading = false;
+    BOOL b64bitOS = false;
+    IsWow64Process(GetCurrentProcess(), &b64bitOS);
+    m_bRunningOn64BitOS = false; //!!b64bitOS;
 }
 
 void ProfileProgressDialog::OnActionButton(wxCommandEvent& WXUNUSED(event)) {
-  if (!m_status.bStartedSampling) {
-    m_status.bStartedSampling = true;
+  if (!m_status->bStartedSampling) {
+    m_status->bStartedSampling = true;
     return;
   }
-  if (!m_status.bFinishedSampling) {
-    m_status.bFinishedSampling = true;
+  if (!m_status->bFinishedSampling) {
+    m_status->bFinishedSampling = true;
     return;
   }
 }
@@ -104,14 +111,14 @@ void ProfileProgressDialog::OnCancelButton(wxCommandEvent& event) {
     OnPauseContinueButton(event);
     return;
   }
-  m_status.bFinishedSampling = true;
-  m_status.bStartedSampling = true;
+  m_status->bFinishedSampling = true;
+  m_status->bStartedSampling = true;
   EndProfiling();
 }
 
 void ProfileProgressDialog::OnPauseContinueButton(wxCommandEvent& WXUNUSED(event)) {
-  m_status.bSamplingPaused = !m_status.bSamplingPaused;
-  if (m_status.bSamplingPaused) {
+  m_status->bSamplingPaused = !m_status->bSamplingPaused;
+  if (m_status->bSamplingPaused) {
     m_cancelButton->SetLabel("Continue");
     SetLabel("Paused");
   } else {
@@ -122,6 +129,10 @@ void ProfileProgressDialog::OnPauseContinueButton(wxCommandEvent& WXUNUSED(event
 
 
 void ProfileProgressDialog::EndProfiling() {
+  if (m_bRunningOn64BitOS) {
+    FinishCmdLineProfiling();
+    CloseSharedMemory();
+  }
   if (IsRunning()) {
     Wait();
   }
@@ -130,45 +141,52 @@ void ProfileProgressDialog::EndProfiling() {
 }
 
 void ProfileProgressDialog::OnClose(wxCloseEvent&) { 
-  m_status.bFinishedSampling = true;
-  m_status.bStartedSampling = true;
+  m_status->bFinishedSampling = true;
+  m_status->bStartedSampling = true;
   EndProfiling(); 
 }
 
-wxThread::ExitCode ProfileProgressDialog::Entry() {
-  m_bProfileReturnValue = SampleProcess(m_settings, &m_status, m_processId, m_logControl);
-  m_status.bFinishedSampling = true;
+wxThread::ExitCode ProfileProgressDialog::Entry() {  
+  m_status = &m_statusData;
+  m_bProfileReturnValue = SampleProcess(m_settings, m_status, m_processId);
+  
+  m_status->bFinishedSampling = true;
   return 0;
 }
 
 void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {  
-  if (!m_status.bStartedSampling) {
+  if (m_bRunningOn64BitOS) {
+    if (!HandleCommandLineProfilerOutput()) {
+      m_status->bFinishedSampling = true;
+    }
+  }
+  if (!m_status->bStartedSampling) {
     if (m_settings->m_samplingStartDelay == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL) {
       m_staticText->SetLabel("Press 'start' to begin.");
       m_gauge->Pulse();
     } else {
-      int val = m_status.secondsLeftToStart;
+      int val = m_status->secondsLeftToStart;
       m_gauge->SetRange(100 * m_settings->m_samplingStartDelay);
       m_gauge->SetValue(100 * val);
       char buf[256];
-      sprintf(buf, "%d seconds to start", m_status.secondsLeftToStart);
+      sprintf(buf, "%d seconds to start", m_status->secondsLeftToStart);
       m_staticText->SetLabel(buf);
     }
   } else {
-    if (!g_allThreadSamples) {
+    if (!m_status->nSamplesTaken) {
       if (!m_bTitleChangedToLoading) {
         m_bTitleChangedToLoading = true;
         SetLabel("Loading debug info...");
         m_actionButton->Enable(false);
       }
       char buf[256];
-      sprintf(buf, "%d of %d modules loaded", g_loadedModules, g_totalModules);
+      sprintf(buf, "%d of %d modules loaded", m_status->nLoadedModules, m_status->nTotalModules);
       m_staticText->SetLabel(buf);
-      if (!g_totalModules) {        
+      if (!m_status->nTotalModules) {        
         m_gauge->SetValue(0);
       } else {        
-        m_gauge->SetRange(100 * g_totalModules);
-        m_gauge->SetValue(100 * g_loadedModules);
+        m_gauge->SetRange(100 * m_status->nTotalModules);
+        m_gauge->SetValue(100 * m_status->nLoadedModules);
       }
     } else {
       if (!m_bTitleChanged) {        
@@ -180,22 +198,22 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
       }
       if (m_settings->m_samplingTime == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL) {
         char buf[256];
-        sprintf(buf, "%d samples collected", g_allThreadSamples);
+        sprintf(buf, "%d samples collected", m_status->nSamplesTaken);
         m_staticText->SetLabel(buf);
-        if (!m_status.bSamplingPaused)
+        if (!m_status->bSamplingPaused)
           m_gauge->Pulse();   
       } else {
-        int val = m_settings->m_samplingTime - m_status.secondsLeftToProfile;
+        int val = m_settings->m_samplingTime - m_status->secondsLeftToProfile;
         m_gauge->SetRange(100 * m_settings->m_samplingTime);
         m_gauge->SetValue(100 * val);
         char buf[256];
-        sprintf(buf, "%d seconds left, %d samples collected", m_status.secondsLeftToProfile, g_allThreadSamples);
+        sprintf(buf, "%d seconds left, %d samples collected", m_status->secondsLeftToProfile, m_status->nSamplesTaken);
         m_staticText->SetLabel(buf);
       }
     }
     
   }
-  if (m_status.bFinishedSampling) {
+  if (m_status->bFinishedSampling) {
     EndProfiling();
   }
 }
@@ -204,7 +222,7 @@ void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {
 #include "ProcessEnumDialog.h"
 
 
-bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings, wxTextCtrl *logControl) {
+bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *settings) {
 
   unsigned int processid = 0;
   if (settings->m_bAttachToProcess) {
@@ -216,12 +234,22 @@ bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *
     processid = dlg.m_processId;
   }
 
-  ProfileProgressDialog dlg(appMainWindow, settings);
+  
+
+  ProfileProgressDialog dlg(appMainWindow, settings);  
   dlg.m_processId = processid; 
-  dlg.m_logControl = logControl;
-  dlg.wxThread::Create();
+  if (!dlg.m_bRunningOn64BitOS) {
+    dlg.wxThread::Create();
+  }
   dlg.m_timer.wxTimer::Start(200, wxTIMER_CONTINUOUS);
-  dlg.wxThread::Run();
+  
+  if (!dlg.m_bRunningOn64BitOS) {
+    dlg.wxThread::Run();
+  } else {
+    dlg.m_status = PrepareStatusInSharedMemory();
+    SampleWithCommandLineProfiler(dlg.m_settings, dlg.m_processId);
+  }
+
   dlg.ShowModal();  
   return dlg.m_bProfileReturnValue;
 }

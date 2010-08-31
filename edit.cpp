@@ -162,6 +162,7 @@ void EditParent::OnSize(wxSizeEvent &) {
   wxSize sz = GetClientSize();  
   m_lineSampleView->SetSize(0, EDITHEADERHEIGHT, LINESAMPLEWIDTH, sz.y-EDITHEADERHEIGHT);
   m_edit->SetSize(LINESAMPLEWIDTH+2, EDITHEADERHEIGHT, sz.x-LINESAMPLEWIDTH, sz.y-EDITHEADERHEIGHT);
+  Refresh();
 }
 
 
