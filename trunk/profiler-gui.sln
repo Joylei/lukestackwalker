@@ -3,6 +3,8 @@ Microsoft Visual Studio Solution File, Format Version 9.00
 # Visual C++ Express 2005
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "wizard", "wizard.vcproj", "{4D68279E-5BA4-4CA0-BD1B-E8CD4A43BCFB}"
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cmdline-profiler", "cmdline-profiler\cmdline-profiler.vcproj", "{C45A3FB8-AC5B-49F6-9D0C-322C2DD7AB98}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Win32 = Debug|Win32
@@ -13,6 +15,10 @@ Global
 		{4D68279E-5BA4-4CA0-BD1B-E8CD4A43BCFB}.Debug|Win32.Build.0 = Debug|Win32
 		{4D68279E-5BA4-4CA0-BD1B-E8CD4A43BCFB}.Release|Win32.ActiveCfg = Release|Win32
 		{4D68279E-5BA4-4CA0-BD1B-E8CD4A43BCFB}.Release|Win32.Build.0 = Release|Win32
+		{C45A3FB8-AC5B-49F6-9D0C-322C2DD7AB98}.Debug|Win32.ActiveCfg = Debug|Win32
+		{C45A3FB8-AC5B-49F6-9D0C-322C2DD7AB98}.Debug|Win32.Build.0 = Debug|Win32
+		{C45A3FB8-AC5B-49F6-9D0C-322C2DD7AB98}.Release|Win32.ActiveCfg = Release|Win32
+		{C45A3FB8-AC5B-49F6-9D0C-322C2DD7AB98}.Release|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

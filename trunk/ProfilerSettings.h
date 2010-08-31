@@ -70,17 +70,28 @@ public:
 
 };
 
+#pragma pack(push,4) 
+// member alignment needs to be set so the progress status can be had in shared memory between the 
+// 32-bit GUI process and the 64-bit command line profiler
+
 struct ProfilerProgressStatus {
+  int nTotalModules;
+  int nLoadedModules;
   int secondsLeftToStart;
+  int secondsLeftToProfile;
   bool bStartedSampling;
   bool bSamplingPaused;
-  int secondsLeftToProfile;
   bool bFinishedSampling;
+  int nSamplesTaken;
   ProfilerProgressStatus() {
     secondsLeftToStart = 0;
     secondsLeftToProfile = 0;
     bStartedSampling = false;
     bFinishedSampling = false;    
     bSamplingPaused = false;
+    nTotalModules = 0;
+    nLoadedModules = 0;
+    nSamplesTaken = 0;
   }
 };
+#pragma pack(pop)

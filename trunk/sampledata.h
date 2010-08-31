@@ -7,6 +7,8 @@
 #include "profilersettings.h"
 #include "graphviz\include\gvc.h"
 
+void LogMessage(bool bError, const char *format, ...);
+
 struct FunctionSample;
 
 
@@ -108,15 +110,12 @@ struct ThreadSampleInfo {
 
 
 
-extern int g_allThreadSamples;
-extern int g_totalModules;
-extern int g_loadedModules;
+
 extern bool g_bNewProfileData;
 
 extern std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
-class wxTextCtrl;
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logControl);
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId);
 
 void SelectThreadForDisplay(unsigned int threadId, bool bSelect = true);
 void ProduceDisplayData();

@@ -22,38 +22,7 @@
 #include <vector>
 
 std::map<unsigned int, ThreadSampleInfo> g_threadSamples;
-int g_allThreadSamples = 0;
-int g_totalModules = 0;
-int g_loadedModules = 0;
 bool g_bNewProfileData = false;
-static wxTextCtrl *s_pLogCtrl = 0;
-
-void LogMessage(bool bError, const char *format, ...) {
-  if (!s_pLogCtrl)
-    return;
-  wxTextAttr attr = s_pLogCtrl->GetDefaultStyle();
-  if (bError) {
-    attr.SetTextColour(*wxRED);
-    s_pLogCtrl->SetDefaultStyle(attr);
-  }
-
-  char buffer[10240];
-  va_list args;
-  va_start (args, format);
-  vsnprintf_s (buffer, sizeof(buffer), _TRUNCATE, format, args);
-  perror (buffer);
-  va_end (args);
-
-  wxLogMessage(buffer);
-
-  if (bError) {
-    attr.SetTextColour(*wxBLACK);
-    s_pLogCtrl->SetDefaultStyle(attr);
-  }
-  int pos = s_pLogCtrl->GetScrollRange(wxVERTICAL);
-  s_pLogCtrl->SetScrollPos(wxVERTICAL, pos);
-  s_pLogCtrl->ScrollLines(1);
-}
 
 class MyStackWalker : public StackWalker
 {
@@ -83,8 +52,8 @@ public:
   bool OnLoadModule(LPCSTR img, LPCSTR mod, DWORD64 baseAddr, DWORD size, DWORD, LPCSTR symType, LPCSTR pdbName, ULONGLONG, int totalModules, int currentModule) {
     CHAR buffer[STACKWALK_MAX_NAMELEN];
     _snprintf_s(buffer, STACKWALK_MAX_NAMELEN, "%s:%s (%p), size: %d, SymType: '%s', PDB: '%s'", img, mod, (LPVOID) baseAddr, size, symType, pdbName);
-    g_totalModules = totalModules;
-    g_loadedModules = currentModule;    
+    m_status->nTotalModules = totalModules;
+    m_status->nLoadedModules = currentModule;    
     LogMessage(!strlen(pdbName), buffer);    
     return !m_status->bFinishedSampling;
   }
@@ -331,8 +300,8 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
         tmp.LowPart = userTime.dwLowDateTime;
         sw.m_currThreadContext->m_userTimeEnd = tmp.QuadPart;
       }
-      sw.ShowCallstack(hThread, maxDepth);
-      g_allThreadSamples++;
+      sw.ShowCallstack(hThread, maxDepth);      
+      status->nSamplesTaken++;
       sw.m_currThreadContext->m_totalSamples++;
       CloseHandle(hThread);
       DWORD exitCode = 0;
@@ -367,14 +336,14 @@ double ProfileProcess(DWORD dwProcessId, LPCSTR debugInfoPath, int maxDepth, tim
     if (bExited)
       break;
 
-    if ((nLoops > 200) && (g_allThreadSamples == 0)) {
+    if ((nLoops > 200) && (status->nSamplesTaken == 0)) {
       LogMessage(true,  "Could not get any samples from the process.");
       break;
     }
 
   } while ((time(0) < end) || (duration == ProfilerSettings::SAMPLINGTIME_MANUALCONTROL));
   time_t sampleend = time(0);
-  double sampleSpeed = (double)g_allThreadSamples  / (sampleend - samplestart);
+  double sampleSpeed = (double)status->nSamplesTaken / (sampleend - samplestart);
 
   if (hSnap != INVALID_HANDLE_VALUE)
     CloseHandle(hSnap);
@@ -641,14 +610,12 @@ char *MergeEnvironment(ProfilerSettings *settings) {
   return ret;
 }
 
-bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId, wxTextCtrl *logCtrl) {      
-  s_pLogCtrl = logCtrl;
-  s_pLogCtrl->Clear();
+bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, unsigned int processId) {          
 
   g_threadSamples.clear();
-  g_allThreadSamples = 0;
-  g_totalModules = 0;
-  g_loadedModules = 0;
+  status->nSamplesTaken = 0;
+  status->nTotalModules = 0;
+  status->nLoadedModules = 0;
 
   PROCESS_INFORMATION pi;
   memset(&pi, 0, sizeof(pi));
@@ -719,13 +686,9 @@ bool SampleProcess(ProfilerSettings *settings, ProfilerProgressStatus *status, u
   if (g_threadSamples.size()) 
     g_threadSamples.begin()->second.m_bSelectedForDisplay = true;
   ProduceDisplayData();
-  LogMessage(false, "Done; %d samples collected at %0.1lf samples/second.", g_allThreadSamples, sampleSpeed);
+  LogMessage(false, "Done; %d samples collected at %0.1lf samples/second.", status->nSamplesTaken, sampleSpeed);
   status->bFinishedSampling = true;
-  g_bNewProfileData = true;
-  int w,h;
-  s_pLogCtrl->GetSize(&w, &h);
-  s_pLogCtrl->SetSize(w, h-1);
-  s_pLogCtrl->SetSize(w, h);
+  g_bNewProfileData = true;  
   return true;
 }
 
@@ -907,7 +870,7 @@ bool SaveSampleData(const wxString &fn) {
   out << "Luke_Stackwalker_Data_(LSD)_file_version ";
   out << LSD_FILEVERSION << endl;
   out << "Threads ";
-  out << g_threadSamples.size() << endl;
+  out << (wxUint32) g_threadSamples.size() << endl;
 
   for (std::map<unsigned int, ThreadSampleInfo>::iterator it = g_threadSamples.begin();
        it != g_threadSamples.end(); it++) {
@@ -919,7 +882,7 @@ bool SaveSampleData(const wxString &fn) {
     out << tsi->m_totalSamples << endl;
 
     out << "Function_samples ";
-    out << tsi->m_functionSamples.size() << endl;
+    out << (wxUint32) tsi->m_functionSamples.size() << endl;
 
     out << "KernelTime ";
     out << (int)((tsi->m_kernelTimeEnd - tsi->m_kernelTimeStart) / 10000) << endl;
@@ -943,7 +906,7 @@ bool SaveSampleData(const wxString &fn) {
     }
     for (std::map<std::string, FunctionSample>::iterator fsit = tsi->m_functionSamples.begin();
          fsit != tsi->m_functionSamples.end(); ++fsit) {
-      out << "Callers " << fsit->second.m_callgraph.size() << endl;
+      out << "Callers " << (wxUint32) fsit->second.m_callgraph.size() << endl;
       int ordinal = 0;
       for (std::list<Caller>::iterator cit = fsit->second.m_callgraph.begin(); cit != fsit->second.m_callgraph.end(); ++cit) {
         out << cit->m_functionSample->m_functionName << endl;
@@ -957,7 +920,7 @@ bool SaveSampleData(const wxString &fn) {
     for (std::map<std::string, FunctionSample>::iterator fsit = tsi->m_functionSamples.begin();
          fsit != tsi->m_functionSamples.end(); ++fsit) {      
       for (std::list<Caller>::iterator cit = fsit->second.m_callgraph.begin(); cit != fsit->second.m_callgraph.end(); ++cit) {
-        out << "Callees " << cit->m_callsFromHere.size() << endl;
+        out << "Callees " << (wxUint32) cit->m_callsFromHere.size() << endl;
         for (std::list<Call>::iterator clit = cit->m_callsFromHere.begin(); clit != cit->m_callsFromHere.end(); ++clit) {
           out << clit->m_count << endl;
           out << clit->m_target->m_ordinalForSaving << endl;
@@ -966,13 +929,13 @@ bool SaveSampleData(const wxString &fn) {
     }
 
     out << "Files ";
-    out << tsi->m_lineSamples.size() << endl;
+    out << (wxUint32) tsi->m_lineSamples.size() << endl;
     
     for (std::map<std::string, FileLineInfo>::iterator flit = tsi->m_lineSamples.begin();
          flit != tsi->m_lineSamples.end(); ++flit) {
       out << flit->first << endl;
       out << "Lines ";
-      out << flit->second.m_lineSamples.size() << endl;             
+      out << (wxUint32) flit->second.m_lineSamples.size() << endl;             
       for (int i = 0; i < (int)flit->second.m_lineSamples.size(); i++) {
         out << flit->second.m_lineSamples[i].m_sampleCount << " ";
       }
