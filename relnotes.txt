@@ -1,5 +1,5 @@
-Release 0.9.8, Dec XXth 2010
-- DLL hell fix (Again, shoot me!)
+Release 0.9.8, Dec 12th 2010
+- DLL hell fix (Again... shoot me!)
 - Support for profiling 64-bit programs
 - Several small GUI tweaks
 - Several bug fixes
