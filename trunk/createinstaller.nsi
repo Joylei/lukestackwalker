@@ -57,6 +57,7 @@ Section "MainSection" SEC01
   SetOverwrite ifnewer
   File "luke_sw.exe"
   CreateDirectory "$SMPROGRAMS\Luke Stackwalker"
+  CreateDirectory "$SMPROGRAMS\Luke Stackwalker\cmdline-profiler"
   CreateShortCut "$SMPROGRAMS\Luke Stackwalker\Luke Stackwalker.lnk" "$INSTDIR\luke_sw.exe"
   CreateShortCut "$DESKTOP\Luke Stackwalker.lnk" "$INSTDIR\luke_sw.exe"
   File "srcsrv.dll"
@@ -93,6 +94,10 @@ Section "MainSection" SEC01
   File "manual\luke stackwalker manual.pdf"
   File "relnotes.txt"
   File "vcredist_x86.exe"
+  SetOutPath "$INSTDIR\cmdline-profiler\"
+  File "cmdline-profiler\cmdline-profiler.exe"
+  File "cmdline-profiler\symsrv.dll"
+  File "cmdline-profiler\dbghelp.dll"
 
 SectionEnd
 
