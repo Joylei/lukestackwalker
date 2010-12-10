@@ -1,3 +1,9 @@
+Release 0.9.8, Dec XXth 2010
+- DLL hell fix (Again, shoot me!)
+- Support for profiling 64-bit programs
+- Several small GUI tweaks
+- Several bug fixes
+
 Release 0.9.7, Apr 19th 2010
 - A sexier display of samples per source line
 - An option in the view menu to display samples either as sample counts or percentage of total samples

@@ -25,6 +25,7 @@ public:
     bool m_bTitleChanged;
     bool m_bTitleChangedToLoading;
     bool m_bRunningOn64BitOS;
+    bool m_bProfileUsingCmdLineProfiler;
     wxTimer m_timer;
     wxStaticText *m_staticText;
     unsigned int m_processId;
@@ -59,6 +60,7 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
                 : wxDialog(parent, wxID_ANY, wxString(_T("Waiting to start..."))),
                   wxThread(wxTHREAD_JOINABLE ),
                   m_timer(this) {
+    m_bProfileUsingCmdLineProfiler = false;
     m_status = 0;
     m_settings = settings;
     wxBoxSizer *sizerTop = new wxBoxSizer(wxVERTICAL);
@@ -92,7 +94,7 @@ ProfileProgressDialog::ProfileProgressDialog(wxWindow *parent, ProfilerSettings 
     m_bTitleChangedToLoading = false;
     BOOL b64bitOS = false;
     IsWow64Process(GetCurrentProcess(), &b64bitOS);
-    m_bRunningOn64BitOS = false; //!!b64bitOS;
+    m_bRunningOn64BitOS = !!b64bitOS;
 }
 
 void ProfileProgressDialog::OnActionButton(wxCommandEvent& WXUNUSED(event)) {
@@ -129,8 +131,8 @@ void ProfileProgressDialog::OnPauseContinueButton(wxCommandEvent& WXUNUSED(event
 
 
 void ProfileProgressDialog::EndProfiling() {
-  if (m_bRunningOn64BitOS) {
-    FinishCmdLineProfiling();
+  if (m_bProfileUsingCmdLineProfiler) {
+    m_bProfileReturnValue = FinishCmdLineProfiling();
     CloseSharedMemory();
   }
   if (IsRunning()) {
@@ -155,7 +157,7 @@ wxThread::ExitCode ProfileProgressDialog::Entry() {
 }
 
 void ProfileProgressDialog::OnTimer(wxTimerEvent& WXUNUSED(evt)) {  
-  if (m_bRunningOn64BitOS) {
+  if (m_bProfileUsingCmdLineProfiler) {
     if (!HandleCommandLineProfilerOutput()) {
       m_status->bFinishedSampling = true;
     }
@@ -232,24 +234,40 @@ bool SampleProcessWithDialogProgress(wxWindow *appMainWindow, ProfilerSettings *
       return true;
     }
     processid = dlg.m_processId;
+  }  
+
+  ProfileProgressDialog dlg(appMainWindow, settings); 
+  dlg.m_processId = processid; 
+
+  if (settings->m_bAttachToProcess) {
+    HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION, false, processid);
+    if (hProcess) {
+      BOOL bWow64Process = false;
+      IsWow64Process(hProcess, &bWow64Process);
+      if (dlg.m_bRunningOn64BitOS && !bWow64Process)
+        dlg.m_bProfileUsingCmdLineProfiler = true;
+      CloseHandle(hProcess);
+    }
+  } else {
+    DWORD binaryType = 0;
+    GetBinaryType(settings->m_executable.c_str(), &binaryType);
+    if (binaryType == SCS_64BIT_BINARY) {
+      dlg.m_bProfileUsingCmdLineProfiler = true;
+    }
   }
 
-  
-
-  ProfileProgressDialog dlg(appMainWindow, settings);  
-  dlg.m_processId = processid; 
-  if (!dlg.m_bRunningOn64BitOS) {
+  if (!dlg.m_bProfileUsingCmdLineProfiler) {
     dlg.wxThread::Create();
   }
   dlg.m_timer.wxTimer::Start(200, wxTIMER_CONTINUOUS);
   
-  if (!dlg.m_bRunningOn64BitOS) {
+  if (!dlg.m_bProfileUsingCmdLineProfiler) {
     dlg.wxThread::Run();
   } else {
     dlg.m_status = PrepareStatusInSharedMemory();
-    SampleWithCommandLineProfiler(dlg.m_settings, dlg.m_processId);
+    if (!SampleWithCommandLineProfiler(dlg.m_settings, dlg.m_processId))
+      return false;
   }
-
   dlg.ShowModal();  
   return dlg.m_bProfileReturnValue;
 }
