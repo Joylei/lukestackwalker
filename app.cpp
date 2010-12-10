@@ -634,7 +634,7 @@ void StackWalkerMainWnd::OnAbout(wxCommandEvent& WXUNUSED(event)) {
 
   char buf[2048];
   sprintf(buf,
-    _T("Luke StackWalker version %d.%d.%d - a win32 profiler (c) 2008-2010 Sami Sallinen, licensed under the BSD license\n\n\n")
+    _T("Luke StackWalker version %d.%d.%d - a win32 & x64 profiler (c) 2008-2010 Sami Sallinen, licensed under the BSD license\n\n\n")
     _T("Included third party software:\n\n")
     _T("Walking the callstack (http://www.codeproject.com/KB/threads/StackWalker.aspx) - source code (c) 2005-2007 Jochen Kalmbach,\nlicensed under the BSD license\n\n")
     _T("Graphviz library (c) 1994-2004 AT&T Corp, licensed under the Common Public License\n\n")
@@ -780,7 +780,7 @@ void StackWalkerMainWnd::OnFileLoadSourceFile(wxCommandEvent&) {
 void StackWalkerMainWnd::OnClickCaller(Caller *caller) {
   m_sourceEdit->SetReadOnly(false);
   m_sourceEdit->Freeze();
-  if (m_sourceEdit->GetFilename() != caller->m_functionSample->m_fileName.c_str()) {
+  if ((m_sourceEdit->GetFilename() != caller->m_functionSample->m_fileName.c_str()) || caller->m_functionSample->m_fileName.empty()) {
     m_sourceEdit->ClearAll();
     m_sourceEdit->SetFilename("");
     wxString fn = caller->m_functionSample->m_fileName.c_str();
@@ -1169,8 +1169,13 @@ void StackWalkerMainWnd::OnProfileRun(wxCommandEvent& WXUNUSED(event)) {
   }  
     
   m_logCtrl->Clear();
+  m_currentSourceFile = "";
+  m_sourceEdit->LoadFile("");
+ 
   if (!SampleProcessWithDialogProgress(this, &m_settings)) {
     wxMessageBox(wxT("Profiling failed."), wxT("Notification"), wxOK | wxCENTRE | wxICON_HAND);
+  } else {
+    g_bNewProfileData = true;
   }
   int w,h;
   m_logCtrl->GetSize(&w, &h);

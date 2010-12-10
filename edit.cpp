@@ -154,8 +154,22 @@ void EditParent::OnPaint(wxPaintEvent&) {
   dc.DrawText(str, LINESAMPLEWIDTH/2-txsz.x/2, EDITHEADERHEIGHT/2-txsz.y/2);
 
   wxString fn = m_edit->GetFilename();
-  txsz = dc.GetTextExtent(fn);
-  dc.DrawText(fn.c_str(), LINESAMPLEWIDTH+3 + (sz.x - LINESAMPLEWIDTH+3)/2 - txsz.x/2, EDITHEADERHEIGHT/2-txsz.y/2);
+  bool bRemovedChars = false;
+  int maxWidth = sz.x - LINESAMPLEWIDTH - 30;
+  do {
+    txsz = dc.GetTextExtent(fn);
+    if (txsz.GetX() > maxWidth) {
+      fn = fn.Right(fn.Length() - 1);
+      bRemovedChars = true;
+    }
+  } while (fn.Length() && (txsz.GetX() > maxWidth));
+
+  if (bRemovedChars) {
+    for (int i = 0; i < 3 && i < (int)fn.Length(); i++) {
+      fn.at(i) = '.';
+    }
+  }    
+  dc.DrawText(fn.c_str(), LINESAMPLEWIDTH+3 + (sz.x - (LINESAMPLEWIDTH+3))/2 - txsz.x/2, EDITHEADERHEIGHT/2-txsz.y/2);
 }
 
 void EditParent::OnSize(wxSizeEvent &) {

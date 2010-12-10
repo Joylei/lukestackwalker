@@ -74,10 +74,7 @@ bool Profile(const char *settingsName, const char *resultFileName, const char *s
   ProfilerProgressStatus *status;
   ProfilerProgressStatus unusedStatus;
   if (sharedMemFile) {
-    status = OpenSharedMemory(sharedMemFile);
-    while (!status->bStartedSampling) {
-      Sleep(100);
-    }
+    status = OpenSharedMemory(sharedMemFile);    
   } else {
     status = &unusedStatus;
   }  
