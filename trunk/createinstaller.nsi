@@ -92,7 +92,7 @@ Section "MainSection" SEC01
   File "bitmaps\lsp.ico"
   File "bitmaps\lsd.ico"
   File "manual\luke stackwalker manual.pdf"
-  File "relnotes.txt"
+  File "readme.txt"
   File "vcredist_x86.exe"
   SetOutPath "$INSTDIR\cmdline-profiler\"
   File "cmdline-profiler\cmdline-profiler.exe"
@@ -193,6 +193,7 @@ Section Uninstall
   Delete "$INSTDIR\lsd.ico"
   Delete "$INSTDIR\luke stackwalker manual.pdf"
   Delete "$INSTDIR\relnotes.txt"
+  Delete "$INSTDIR\readme.txt"
   Delete "$INSTDIR\vcredist_x86.exe"
 
 
