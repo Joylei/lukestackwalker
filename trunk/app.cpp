@@ -34,6 +34,9 @@
 #include <wx/file.h>
 #include <wx/fdrepdlg.h>
 #include <wx/generic/statusbr.h>
+#include <wx/settings.h>
+
+
 
 static wxTextCtrl *s_pLogCtrl = 0;
 
@@ -502,6 +505,17 @@ StackWalkerMainWnd::StackWalkerMainWnd(const wxString& title)
     y = wxConfigBase::Get()->Read(_T("y"), 50),
     w = wxConfigBase::Get()->Read(_T("w"), 350),
     h = wxConfigBase::Get()->Read(_T("h"), 200);
+  if (x < 0)
+    x = 0;
+  if (y < 0)
+    y = 0;
+  int sxs = wxSystemSettings::GetMetric(wxSYS_SCREEN_X);
+  int sys = wxSystemSettings::GetMetric(wxSYS_SCREEN_Y);
+  if (x >= sxs)
+    x = sxs - 100;
+  if (y >= sys)
+    y = sys - 100;
+
   Move(x, y);
   SetClientSize(w, h);
 
@@ -999,8 +1013,8 @@ double ProfilerGridCellRenderer::m_maxValue = 0;
 
 void StackWalkerMainWnd::ClearContext() {
   m_sourceEdit->SetReadOnly(false);
-  m_sourceEdit->ClearAll();
-  m_sourceEdit->SetFilename("");
+  m_sourceEdit->ClearAll();  
+  m_sourceEdit->LoadFile("");
   m_sourceEdit->SetReadOnly(true);
   m_resultsGrid->SetTable(0);
   m_currentActiveFs = 0;

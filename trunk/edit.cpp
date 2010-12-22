@@ -467,9 +467,11 @@ bool Edit::LoadFile (wxString filename, wxString openFrom) {
   }
 
   s_maxSamplesPerLine = 0;
-  for (int i = 0; i < (int)s_pfli->m_lineSamples.size(); i++) {
-    if (s_pfli->m_lineSamples[i].m_sampleCount > s_maxSamplesPerLine)
-      s_maxSamplesPerLine = s_pfli->m_lineSamples[i].m_sampleCount;
+  if (s_pfli) {
+    for (int i = 0; i < (int)s_pfli->m_lineSamples.size(); i++) {
+      if (s_pfli->m_lineSamples[i].m_sampleCount > s_maxSamplesPerLine)
+        s_maxSamplesPerLine = s_pfli->m_lineSamples[i].m_sampleCount;
+    }
   }
   
 
