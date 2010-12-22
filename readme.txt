@@ -1,3 +1,9 @@
+Release 0.9.9, Dec 22th 2010
+- Fix crash when clicking on a call-graph node with source code
+- Fix crash when having one profile loaded, source code view displaying source data and then loading another profile
+- Prevent application main window from opening off-screen
+- Updated manual/help
+
 Release 0.9.8, Dec 12th 2010
 - DLL hell fix (Again... shoot me!)
 - Support for profiling 64-bit programs
