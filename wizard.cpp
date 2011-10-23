@@ -251,6 +251,15 @@ public:
 
     virtual bool TransferDataFromWindow() {
       m_pSettings->m_executable = m_executablePicker->GetPath();
+
+      if (!wxFileName::FileExists(m_pSettings->m_executable)) {
+        char buf[2048];
+        sprintf(buf, "The executable [%s] does not exist.", m_pSettings->m_executable.c_str());
+        wxMessageDialog dlg(this, buf, "Cannot continue!", wxOK | wxICON_ERROR);
+        dlg.ShowModal();
+        return false;
+      }
+
       m_pSettings->m_commandLineArgs = m_cmdLineArgsCtrl->GetValue();
       m_pSettings->m_currentDirectory = m_currDirPicker->GetPath();
       m_pSettings->m_bAttachToProcess = m_attachToProcessCheckBox->IsChecked();
@@ -299,7 +308,7 @@ public:
     ProfilerSettingsTargetPage(wxWizard *parent, ProfilerSettings *settings) : wxWizardPageSimple(parent) {
       m_pSettings = settings;
       m_executablePicker = new wxFilePickerCtrl(this, wxID_ANY, "", "Executable to profile:", "Executable files (*.exe)|*.exe|All files (*.*)|*.*", 
-                                                wxDefaultPosition, wxSize(350, 20));
+                                                wxDefaultPosition, wxSize(350, 20),  wxFLP_OPEN | wxFLP_USE_TEXTCTRL);
             
       wxBoxSizer *mainSizer = new wxBoxSizer(wxVERTICAL);
 
